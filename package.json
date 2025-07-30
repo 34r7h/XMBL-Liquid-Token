@@ -1,0 +1,37 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/34r7h/XMBL-Liquid-Token.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/34r7h/XMBL-Liquid-Token/issues"
+  },
+  "homepage": "https://github.com/34r7h/XMBL-Liquid-Token#readme",
+  "devDependencies": {
+    "@1inch/fusion-sdk": "^2.3.5",
+    "@1inch/limit-order-protocol": "^2.0.5",
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "@nomicfoundation/hardhat-verify": "^2.1.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "@types/bitcoinjs-lib": "^4.0.1",
+    "@types/node": "^24.1.0",
+    "@wormhole-foundation/sdk": "^3.0.4",
+    "bitcoinjs-lib": "^6.1.7",
+    "dotenv": "^17.2.1",
+    "ethers": "^6.15.0",
+    "hardhat": "^2.26.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  }
+}
