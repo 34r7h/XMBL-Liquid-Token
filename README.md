@@ -93,3 +93,5 @@ This folder will contain all your Solidity smart contracts and their associated 
 *   **`package.json`**: Lists development dependencies (e.g., `hardhat`, `@openzeppelin/contracts`, `@1inch/limit-order-protocol-contract` if used in contracts, `ethers`, `chai`).
 *   **`.env`**: Stores sensitive information for contract deployment and testing (e.g., `PRIVATE_KEY`, `SEPOLIA_RPC_URL`).
 *   **`README.md`**: A detailed project `README` (as suggested by sources for hackathon submissions) outlining setup instructions, architecture, and demo steps for your DeFi protocol.
+
+
