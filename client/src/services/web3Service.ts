@@ -114,8 +114,10 @@ export class Web3Service extends EventEmitter {
     this.signer = null
     this.currentChainId = null
 
-    // Set up event listeners for tests
-    this.setupEventListeners()
+    // Set up event listeners for tests (only if window exists)
+    if (typeof window !== 'undefined') {
+      this.setupEventListeners()
+    }
   }
 
   private initializeProvider() {
@@ -128,7 +130,7 @@ export class Web3Service extends EventEmitter {
   }
 
   private setupEventListeners() {
-    if (!window.ethereum) return
+    if (typeof window === 'undefined' || !window.ethereum) return
 
     window.ethereum.on('accountsChanged', (accounts: string[]) => {
       this.currentAccount = accounts[0] || null

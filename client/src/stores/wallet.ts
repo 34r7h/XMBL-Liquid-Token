@@ -347,36 +347,35 @@ export const useWalletStore = defineStore('wallet', () => {
 
   return {
     // State
-    return {
-      // State
-      isConnected,
-      account,
-      chainId,
-      balance,
-      provider,
-      isConnecting,
-      error,
-      xmblNFTs,
-      selectedNFT,
+    isConnected,
+    account,
+    chainId,
+    balance,
+    provider,
+    isConnecting,
+    error,
+    xmblNFTs,
+    selectedNFT,
 
-      // Getters
-      isValidNetwork,
-      shortAddress,
-      formattedBalance,
-      networkName,
-      totalNFTValue,
-      activeNFTCount,
+    // Getters
+    isValidNetwork,
+    shortAddress,
+    formattedBalance,
+    networkName,
+    totalNFTValue,
+    activeNFTCount,
 
-      // Actions
-      connectWallet,
-      disconnectWallet,
-      switchNetwork,
-      updateBalance,
-      initializeProvider,
-      watchAccountChanges,
-      watchChainChanges,
-      loadXMBLNFTs,
-      selectNFT,
-      getTBAAddress,
-      loadCachedNFTs,
-    }
+    // Actions
+    connectWallet,
+    disconnectWallet,
+    switchNetwork,
+    updateBalance,
+    initializeProvider,
+    watchAccountChanges,
+    watchChainChanges,
+    loadXMBLNFTs,
+    selectNFT,
+    getTBAAddress,
+    loadCachedNFTs,
+  }
+})
