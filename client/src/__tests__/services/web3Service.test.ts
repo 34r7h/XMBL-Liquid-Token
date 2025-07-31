@@ -31,12 +31,29 @@ describe('Web3Service', () => {
   let web3Service: Web3Service
 
   beforeEach(() => {
-    web3Service = new Web3Service()
+    // Clear mocks first
     vi.clearAllMocks()
+
+    // Restore the mock ethereum before each test
+    Object.defineProperty(window, 'ethereum', {
+      value: mockEthereum,
+      writable: true,
+      configurable: true
+    })
+
+    // Create service after clearing mocks and setting up ethereum
+    web3Service = new Web3Service()
   })
 
   afterEach(() => {
     vi.clearAllMocks()
+
+    // Ensure ethereum is restored after each test
+    Object.defineProperty(window, 'ethereum', {
+      value: mockEthereum,
+      writable: true,
+      configurable: true
+    })
   })
 
   describe('Wallet Connection', () => {
