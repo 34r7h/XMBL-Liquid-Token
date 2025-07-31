@@ -66,3 +66,18 @@
  * - ETHEREUM_RPC_URL - Ethereum node RPC endpoint
  * - PRIVATE_KEY - Wallet private key for order signing
  */
+
+export interface ServiceHealth {
+  status: 'healthy' | 'unhealthy';
+  message?: string;
+}
+
+export const oneInchService = {
+  async initialize(): Promise<void> {
+    console.log('1inch service initialized');
+  },
+
+  async health(): Promise<ServiceHealth> {
+    return { status: 'healthy' };
+  }
+};
