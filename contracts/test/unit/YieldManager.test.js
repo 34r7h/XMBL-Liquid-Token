@@ -2,6 +2,7 @@ const { expect } = require("chai");
 const { parseEther, keccak256, ZeroAddress, MaxUint256, ZeroHash } = require("ethers");
 const { ethers } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
+const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 
 describe("YieldManager", function () {
   let yieldManager;
@@ -162,7 +163,7 @@ describe("YieldManager", function () {
     it("should reject deployment by non-vault", async function () {
       await expect(
         yieldManager.connect(user1).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT)
-      ).to.be.revertedWith("Only vault can deploy funds");
+      ).to.be.revertedWith("Only vault can call this function");
     });
 
     it("should reject zero amount deployment", async function () {
@@ -173,18 +174,18 @@ describe("YieldManager", function () {
 
     it("should handle multiple deployments", async function () {
       await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
-      await yieldManager.connect(vault).deployFunds(await mockAave.getAddress(), DEPLOY_AMOUNT.mul(2));
+      await yieldManager.connect(vault).deployFunds(await mockAave.getAddress(), DEPLOY_AMOUNT * 2n);
 
       expect(await yieldManager.protocolBalances(await mockCompound.getAddress())).to.equal(DEPLOY_AMOUNT);
-      expect(await yieldManager.protocolBalances(await mockAave.getAddress())).to.equal(DEPLOY_AMOUNT.mul(2));
-      expect(await yieldManager.totalDeployed()).to.equal(DEPLOY_AMOUNT.mul(3));
+      expect(await yieldManager.protocolBalances(await mockAave.getAddress())).to.equal(DEPLOY_AMOUNT * 2n);
+      expect(await yieldManager.totalDeployed()).to.equal(DEPLOY_AMOUNT * 3n);
     });
 
     it("should update protocol balance correctly", async function () {
       await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
       await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
 
-      expect(await yieldManager.protocolBalances(await mockCompound.getAddress())).to.equal(DEPLOY_AMOUNT.mul(2));
+      expect(await yieldManager.protocolBalances(await mockCompound.getAddress())).to.equal(DEPLOY_AMOUNT * 2n);
     });
 
     it("should transfer WBTC to protocol", async function () {
@@ -193,7 +194,7 @@ describe("YieldManager", function () {
       await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
 
       const finalBalance = await mockWBTC.balanceOf(await mockCompound.getAddress());
-      expect(finalBalance.sub(initialBalance)).to.equal(DEPLOY_AMOUNT);
+      expect(finalBalance - initialBalance).to.equal(DEPLOY_AMOUNT);
     });
   });
 
@@ -207,7 +208,7 @@ describe("YieldManager", function () {
 
       // Simulate yield accumulation
       await mockCompound.addYield(YIELD_AMOUNT);
-      await mockAave.addYield(YIELD_AMOUNT.div(2));
+      await mockAave.addYield(YIELD_AMOUNT / 2n);
     });
 
     it("should harvest yield from all protocols", async function () {
@@ -224,11 +225,11 @@ describe("YieldManager", function () {
       await yieldManager.harvestYield();
 
       expect(await yieldManager.accruedYield(await mockCompound.getAddress())).to.equal(YIELD_AMOUNT);
-      expect(await yieldManager.accruedYield(await mockAave.getAddress())).to.equal(YIELD_AMOUNT.div(2));
+      expect(await yieldManager.accruedYield(await mockAave.getAddress())).to.equal(YIELD_AMOUNT / 2n);
     });
 
     it("should update total yield harvested", async function () {
-      const expectedTotal = YIELD_AMOUNT.add(YIELD_AMOUNT.div(2));
+      const expectedTotal = YIELD_AMOUNT + YIELD_AMOUNT / 2n;
 
       await yieldManager.harvestYield();
 
@@ -275,7 +276,7 @@ describe("YieldManager", function () {
     });
 
     it("should withdraw funds from protocol", async function () {
-      const withdrawAmount = DEPLOY_AMOUNT.div(2);
+      const withdrawAmount = DEPLOY_AMOUNT / 2n;
 
       await expect(
         yieldManager.connect(vault).withdrawFunds(await mockCompound.getAddress(), withdrawAmount)
@@ -289,13 +290,13 @@ describe("YieldManager", function () {
 
     it("should reject withdrawal by non-vault", async function () {
       await expect(
-        yieldManager.connect(user1).withdrawFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT.div(2))
-      ).to.be.revertedWith("Only vault can withdraw funds");
+        yieldManager.connect(user1).withdrawFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT / 2n)
+      ).to.be.revertedWith("Only vault can call this function");
     });
 
     it("should reject withdrawal of more than deployed", async function () {
       await expect(
-        yieldManager.connect(vault).withdrawFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT.mul(2))
+        yieldManager.connect(vault).withdrawFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT * 2n)
       ).to.be.revertedWith("Insufficient balance");
     });
 
@@ -307,12 +308,12 @@ describe("YieldManager", function () {
 
     it("should transfer WBTC back to vault", async function () {
       const vaultBalanceBefore = await mockWBTC.balanceOf(await vault.getAddress());
-      const withdrawAmount = DEPLOY_AMOUNT.div(2);
+      const withdrawAmount = DEPLOY_AMOUNT / 2n;
 
       await yieldManager.connect(vault).withdrawFunds(await mockCompound.getAddress(), withdrawAmount);
 
       const vaultBalanceAfter = await mockWBTC.balanceOf(await vault.getAddress());
-      expect(vaultBalanceAfter.sub(vaultBalanceBefore)).to.equal(withdrawAmount);
+      expect(vaultBalanceAfter - vaultBalanceBefore).to.equal(withdrawAmount);
     });
 
     it("should handle complete withdrawal", async function () {
@@ -330,7 +331,7 @@ describe("YieldManager", function () {
       await yieldManager.setYieldProtocol(await mockProtocol3.getAddress(), true);
 
       // Deploy funds to create imbalance
-      await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT.mul(3));
+      await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT * 3n);
       await yieldManager.connect(vault).deployFunds(await mockAave.getAddress(), DEPLOY_AMOUNT);
     });
 
@@ -343,7 +344,7 @@ describe("YieldManager", function () {
       const aaveBalance = await yieldManager.protocolBalances(await mockAave.getAddress());
       const protocol3Balance = await yieldManager.protocolBalances(await mockProtocol3.getAddress());
 
-      expect(compoundBalance).to.be.lt(DEPLOY_AMOUNT.mul(3)); // Should be reduced
+      expect(compoundBalance).to.be.lt(DEPLOY_AMOUNT * 3n); // Should be reduced
       expect(protocol3Balance).to.be.gt(0); // Should receive funds
     });
 
@@ -389,7 +390,7 @@ describe("YieldManager", function () {
       await yieldManager.setYieldProtocol(await mockAave.getAddress(), true);
       
       await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
-      await yieldManager.connect(vault).deployFunds(await mockAave.getAddress(), DEPLOY_AMOUNT.mul(2));
+      await yieldManager.connect(vault).deployFunds(await mockAave.getAddress(), DEPLOY_AMOUNT * 2n);
     });
 
     it("should return active positions", async function () {
@@ -403,25 +404,25 @@ describe("YieldManager", function () {
       const aavePosition = positions.find(p => p.protocol === mockAaveAddr);
       
       expect(compoundPosition.balance).to.equal(DEPLOY_AMOUNT);
-      expect(aavePosition.balance).to.equal(DEPLOY_AMOUNT.mul(2));
+      expect(aavePosition.balance).to.equal(DEPLOY_AMOUNT * 2n);
     });
 
     it("should calculate total yield correctly", async function () {
       await mockCompound.addYield(YIELD_AMOUNT);
-      await mockAave.addYield(YIELD_AMOUNT.mul(2));
+      await mockAave.addYield(YIELD_AMOUNT * 2n);
 
       const totalYield = await yieldManager.getTotalYield();
-      expect(totalYield).to.equal(YIELD_AMOUNT.mul(3));
+      expect(totalYield).to.equal(YIELD_AMOUNT * 3n);
     });
 
     it("should return protocol-specific data", async function () {
       expect(await yieldManager.protocolBalances(await mockCompound.getAddress())).to.equal(DEPLOY_AMOUNT);
-      expect(await yieldManager.protocolBalances(await mockAave.getAddress())).to.equal(DEPLOY_AMOUNT.mul(2));
+      expect(await yieldManager.protocolBalances(await mockAave.getAddress())).to.equal(DEPLOY_AMOUNT * 2n);
       expect(await yieldManager.protocolBalances(await mockProtocol3.getAddress())).to.equal(0);
     });
 
     it("should track total deployed accurately", async function () {
-      expect(await yieldManager.totalDeployed()).to.equal(DEPLOY_AMOUNT.mul(3));
+      expect(await yieldManager.totalDeployed()).to.equal(DEPLOY_AMOUNT * 3n);
     });
   });
 
@@ -470,13 +471,18 @@ describe("YieldManager", function () {
     it("should prevent unauthorized access to vault functions", async function () {
       await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
 
+      // Test unauthorized deploy
       await expect(
         yieldManager.connect(user1).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT)
-      ).to.be.revertedWith("Only vault can deploy funds");
+      ).to.be.revertedWith("Only vault can call this function");
 
+      // First deploy some funds from vault to test withdraw
+      await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
+
+      // Then test unauthorized withdraw
       await expect(
         yieldManager.connect(user1).withdrawFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT)
-      ).to.be.revertedWith("Only vault can withdraw funds");
+      ).to.be.revertedWith("Only vault can call this function");
     });
 
     it("should prevent unauthorized protocol management", async function () {
@@ -516,7 +522,7 @@ describe("YieldManager", function () {
 
       // Try to withdraw more than available
       await expect(
-        yieldManager.connect(vault).withdrawFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT.mul(2))
+        yieldManager.connect(vault).withdrawFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT * 2n)
       ).to.be.revertedWith("Insufficient balance");
     });
   });
