@@ -642,3 +642,7 @@ export class Web3Service extends EventEmitter {
     }
   }
 }
+
+// Export singleton instance
+export const web3Service = new Web3Service()
+export default web3Service
