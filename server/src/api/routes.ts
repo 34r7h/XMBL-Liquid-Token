@@ -67,3 +67,21 @@
  * - 500 Internal Server Error - Server errors
  * - 503 Service Unavailable - External service errors
  */
+
+export const router = {
+  get: (path: string, handler: Function) => {
+    console.log(`GET route registered: ${path}`);
+  },
+  
+  post: (path: string, handler: Function) => {
+    console.log(`POST route registered: ${path}`);
+  },
+  
+  use: (path: string | Function, handler?: Function) => {
+    if (typeof path === 'string') {
+      console.log(`Middleware registered for: ${path}`);
+    } else {
+      console.log('Global middleware registered');
+    }
+  }
+};

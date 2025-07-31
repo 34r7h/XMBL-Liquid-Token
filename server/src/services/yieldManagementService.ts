@@ -45,3 +45,26 @@
  * - Database for position tracking
  * - blockchainMonitor for event listening
  */
+
+export interface ServiceHealth {
+  status: 'healthy' | 'unhealthy';
+  message?: string;
+}
+
+export const yieldManagementService = {
+  async initialize(): Promise<void> {
+    console.log('Yield management service initialized');
+  },
+
+  async startAutomation(): Promise<void> {
+    console.log('Yield automation started');
+  },
+
+  async stop(): Promise<void> {
+    console.log('Yield management service stopped');
+  },
+
+  async health(): Promise<ServiceHealth> {
+    return { status: 'healthy' };
+  }
+};

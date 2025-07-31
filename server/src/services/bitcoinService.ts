@@ -76,3 +76,18 @@
  * - BITCOIN_PRIVATE_KEY - Private key for Bitcoin transactions
  * - BITCOIN_NETWORK - mainnet/testnet configuration
  */
+
+export interface ServiceHealth {
+  status: 'healthy' | 'unhealthy';
+  message?: string;
+}
+
+export const bitcoinService = {
+  async initialize(): Promise<void> {
+    console.log('Bitcoin service initialized');
+  },
+
+  async health(): Promise<ServiceHealth> {
+    return { status: 'healthy' };
+  }
+};

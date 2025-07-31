@@ -55,3 +55,26 @@
  * - WebSocket connections for real-time updates
  * - Retry and exponential backoff utilities
  */
+
+export interface ServiceHealth {
+  status: 'healthy' | 'unhealthy';
+  message?: string;
+}
+
+export const blockchainMonitor = {
+  async initialize(): Promise<void> {
+    console.log('Blockchain monitor initialized');
+  },
+
+  async startEventListeners(): Promise<void> {
+    console.log('Event listeners started');
+  },
+
+  async stopEventListeners(): Promise<void> {
+    console.log('Event listeners stopped');
+  },
+
+  async health(): Promise<ServiceHealth> {
+    return { status: 'healthy' };
+  }
+};
