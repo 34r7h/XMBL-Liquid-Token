@@ -1,4 +1,5 @@
 const { expect } = require("chai");
+const { parseEther, keccak256, ZeroAddress, MaxUint256, ZeroHash } = require("ethers");
 const { ethers } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
@@ -12,8 +13,8 @@ describe("I1inchFusion Interface", function () {
   let mockToken1;
   let mockToken2;
 
-  const ORDER_AMOUNT = ethers.utils.parseEther("100");
-  const TAKING_AMOUNT = ethers.utils.parseEther("95");
+  const ORDER_AMOUNT = parseEther("100");
+  const TAKING_AMOUNT = parseEther("95");
 
   beforeEach(async function () {
     [owner, maker, taker, resolver] = await ethers.getSigners();
@@ -22,23 +23,23 @@ describe("I1inchFusion Interface", function () {
     const MockERC20 = await ethers.getContractFactory("MockERC20");
     mockToken1 = await MockERC20.deploy("Token1", "TK1", 18);
     mockToken2 = await MockERC20.deploy("Token2", "TK2", 18);
-    await mockToken1.deployed();
-    await mockToken2.deployed();
+    // ethers v6: .deployed() is not needed
+    // ethers v6: .deployed() is not needed
 
     // Note: Skip tests if I1inchFusion interface implementation is not available
     try {
       // Deploy mock implementation of I1inchFusion interface
       const MockI1inchFusion = await ethers.getContractFactory("MockI1inchFusion");
       mockFusion = await MockI1inchFusion.deploy();
-      await mockFusion.deployed();
+      // ethers v6: .deployed() is not needed
 
       // Mint tokens for testing
-      await mockToken1.mint(maker.address, ethers.utils.parseEther("1000"));
-      await mockToken2.mint(taker.address, ethers.utils.parseEther("1000"));
+      await mockToken1.mint(await maker.getAddress(), parseEther("1000"));
+      await mockToken2.mint(await taker.getAddress(), parseEther("1000"));
       
       // Approve tokens
-      await mockToken1.connect(maker).approve(mockFusion.address, ethers.utils.parseEther("1000"));
-      await mockToken2.connect(taker).approve(mockFusion.address, ethers.utils.parseEther("1000"));
+      await mockToken1.connect(maker).approve(await mockFusion.getAddress(), parseEther("1000"));
+      await mockToken2.connect(taker).approve(await mockFusion.getAddress(), parseEther("1000"));
     } catch (error) {
       console.log("I1inchFusion interface implementation not available, skipping tests");
       this.skip();
@@ -64,8 +65,8 @@ describe("I1inchFusion Interface", function () {
 
   describe("Order Creation", function () {
     it("should create Fusion order successfully", async function () {
-      const makerAsset = mockToken1.address;
-      const takerAsset = mockToken2.address;
+      const makerAsset = await mockToken1.getAddress();
+      const takerAsset = await mockToken2.getAddress();
       const makingAmount = ORDER_AMOUNT;
       const takingAmount = TAKING_AMOUNT;
       const orderData = "0x";
@@ -80,13 +81,13 @@ describe("I1inchFusion Interface", function () {
         )
       )
         .to.emit(mockFusion, "OrderCreated")
-        .withArgs(anyValue, maker.address, makerAsset, takerAsset);
+        .withArgs(anyValue, await maker.getAddress(), makerAsset, takerAsset);
     });
 
     it("should return valid order hash", async function () {
       const orderHash = await mockFusion.connect(maker).createOrder(
-        mockToken1.address,
-        mockToken2.address,
+        await mockToken1.getAddress(),
+        await mockToken2.getAddress(),
         ORDER_AMOUNT,
         TAKING_AMOUNT,
         "0x"
@@ -99,8 +100,8 @@ describe("I1inchFusion Interface", function () {
     it("should reject zero amounts", async function () {
       await expect(
         mockFusion.connect(maker).createOrder(
-          mockToken1.address,
-          mockToken2.address,
+          await mockToken1.getAddress(),
+          await mockToken2.getAddress(),
           0,
           TAKING_AMOUNT,
           "0x"
@@ -109,8 +110,8 @@ describe("I1inchFusion Interface", function () {
 
       await expect(
         mockFusion.connect(maker).createOrder(
-          mockToken1.address,
-          mockToken2.address,
+          await mockToken1.getAddress(),
+          await mockToken2.getAddress(),
           ORDER_AMOUNT,
           0,
           "0x"
@@ -121,8 +122,8 @@ describe("I1inchFusion Interface", function () {
     it("should reject invalid token addresses", async function () {
       await expect(
         mockFusion.connect(maker).createOrder(
-          ethers.constants.AddressZero,
-          mockToken2.address,
+          ZeroAddress,
+          await mockToken2.getAddress(),
           ORDER_AMOUNT,
           TAKING_AMOUNT,
           "0x"
@@ -131,8 +132,8 @@ describe("I1inchFusion Interface", function () {
 
       await expect(
         mockFusion.connect(maker).createOrder(
-          mockToken1.address,
-          ethers.constants.AddressZero,
+          await mockToken1.getAddress(),
+          ZeroAddress,
           ORDER_AMOUNT,
           TAKING_AMOUNT,
           "0x"
@@ -143,8 +144,8 @@ describe("I1inchFusion Interface", function () {
     it("should reject same token swap", async function () {
       await expect(
         mockFusion.connect(maker).createOrder(
-          mockToken1.address,
-          mockToken1.address,
+          await mockToken1.getAddress(),
+          await mockToken1.getAddress(),
           ORDER_AMOUNT,
           TAKING_AMOUNT,
           "0x"
@@ -156,8 +157,8 @@ describe("I1inchFusion Interface", function () {
       const additionalData = ethers.utils.hexlify(ethers.utils.randomBytes(32));
 
       const orderHash = await mockFusion.connect(maker).createOrder(
-        mockToken1.address,
-        mockToken2.address,
+        await mockToken1.getAddress(),
+        await mockToken2.getAddress(),
         ORDER_AMOUNT,
         TAKING_AMOUNT,
         additionalData
@@ -175,8 +176,8 @@ describe("I1inchFusion Interface", function () {
     beforeEach(async function () {
       // Create an order first
       const tx = await mockFusion.connect(maker).createOrder(
-        mockToken1.address,
-        mockToken2.address,
+        await mockToken1.getAddress(),
+        await mockToken2.getAddress(),
         ORDER_AMOUNT,
         TAKING_AMOUNT,
         "0x"
@@ -187,11 +188,11 @@ describe("I1inchFusion Interface", function () {
       // Create order data and signature (simplified for testing)
       orderData = ethers.utils.defaultAbiCoder.encode(
         ["address", "address", "uint256", "uint256", "address"],
-        [mockToken1.address, mockToken2.address, ORDER_AMOUNT, TAKING_AMOUNT, maker.address]
+        [await mockToken1.getAddress(), await mockToken2.getAddress(), ORDER_AMOUNT, TAKING_AMOUNT, await maker.getAddress()]
       );
 
       // Create signature (simplified)
-      const message = ethers.utils.keccak256(orderData);
+      const message = keccak256(orderData);
       signature = await maker.signMessage(ethers.utils.arrayify(message));
     });
 
@@ -205,7 +206,7 @@ describe("I1inchFusion Interface", function () {
         )
       )
         .to.emit(mockFusion, "OrderFilled")
-        .withArgs(orderHash, maker.address, resolver.address, ORDER_AMOUNT, TAKING_AMOUNT);
+        .withArgs(orderHash, await maker.getAddress(), await resolver.getAddress(), ORDER_AMOUNT, TAKING_AMOUNT);
     });
 
     it("should handle partial fills", async function () {
@@ -221,7 +222,7 @@ describe("I1inchFusion Interface", function () {
         )
       )
         .to.emit(mockFusion, "OrderFilled")
-        .withArgs(orderHash, maker.address, resolver.address, partialMaking, partialTaking);
+        .withArgs(orderHash, await maker.getAddress(), await resolver.getAddress(), partialMaking, partialTaking);
 
       // Check remaining amount
       const remaining = await mockFusion.getOrderRemainingAmount(orderHash);
@@ -229,7 +230,7 @@ describe("I1inchFusion Interface", function () {
     });
 
     it("should reject invalid signature", async function () {
-      const wrongSignature = await taker.signMessage(ethers.utils.arrayify(ethers.utils.keccak256(orderData)));
+      const wrongSignature = await taker.signMessage(ethers.utils.arrayify(keccak256(orderData)));
 
       await expect(
         mockFusion.connect(resolver).fillOrder(
@@ -289,8 +290,8 @@ describe("I1inchFusion Interface", function () {
     });
 
     it("should transfer tokens correctly", async function () {
-      const makerBalanceBefore = await mockToken1.balanceOf(maker.address);
-      const resolverBalanceBefore = await mockToken2.balanceOf(resolver.address);
+      const makerBalanceBefore = await mockToken1.balanceOf(await maker.getAddress());
+      const resolverBalanceBefore = await mockToken2.balanceOf(await resolver.getAddress());
 
       await mockFusion.connect(resolver).fillOrder(
         orderData,
@@ -299,8 +300,8 @@ describe("I1inchFusion Interface", function () {
         TAKING_AMOUNT
       );
 
-      const makerBalanceAfter = await mockToken1.balanceOf(maker.address);
-      const resolverBalanceAfter = await mockToken2.balanceOf(resolver.address);
+      const makerBalanceAfter = await mockToken1.balanceOf(await maker.getAddress());
+      const resolverBalanceAfter = await mockToken2.balanceOf(await resolver.getAddress());
 
       expect(makerBalanceBefore.sub(makerBalanceAfter)).to.equal(ORDER_AMOUNT);
       expect(resolverBalanceAfter.sub(resolverBalanceBefore)).to.equal(TAKING_AMOUNT);
@@ -312,8 +313,8 @@ describe("I1inchFusion Interface", function () {
 
     beforeEach(async function () {
       const tx = await mockFusion.connect(maker).createOrder(
-        mockToken1.address,
-        mockToken2.address,
+        await mockToken1.getAddress(),
+        await mockToken2.getAddress(),
         ORDER_AMOUNT,
         TAKING_AMOUNT,
         "0x"
@@ -325,7 +326,7 @@ describe("I1inchFusion Interface", function () {
     it("should cancel order successfully", async function () {
       await expect(mockFusion.connect(maker).cancelOrder(orderHash))
         .to.emit(mockFusion, "OrderCancelled")
-        .withArgs(orderHash, maker.address);
+        .withArgs(orderHash, await maker.getAddress());
     });
 
     it("should reject cancellation by non-maker", async function () {
@@ -335,7 +336,7 @@ describe("I1inchFusion Interface", function () {
     });
 
     it("should reject cancellation of non-existent order", async function () {
-      const fakeOrderHash = ethers.utils.keccak256("0x1234");
+      const fakeOrderHash = keccak256("0x1234");
 
       await expect(
         mockFusion.connect(maker).cancelOrder(fakeOrderHash)
@@ -355,9 +356,9 @@ describe("I1inchFusion Interface", function () {
 
       const orderData = ethers.utils.defaultAbiCoder.encode(
         ["address", "address", "uint256", "uint256", "address"],
-        [mockToken1.address, mockToken2.address, ORDER_AMOUNT, TAKING_AMOUNT, maker.address]
+        [await mockToken1.getAddress(), await mockToken2.getAddress(), ORDER_AMOUNT, TAKING_AMOUNT, await maker.getAddress()]
       );
-      const message = ethers.utils.keccak256(orderData);
+      const message = keccak256(orderData);
       const signature = await maker.signMessage(ethers.utils.arrayify(message));
 
       await expect(
@@ -376,8 +377,8 @@ describe("I1inchFusion Interface", function () {
 
     beforeEach(async function () {
       const tx = await mockFusion.connect(maker).createOrder(
-        mockToken1.address,
-        mockToken2.address,
+        await mockToken1.getAddress(),
+        await mockToken2.getAddress(),
         ORDER_AMOUNT,
         TAKING_AMOUNT,
         "0x"
@@ -400,9 +401,9 @@ describe("I1inchFusion Interface", function () {
       // Partially fill order
       const orderData = ethers.utils.defaultAbiCoder.encode(
         ["address", "address", "uint256", "uint256", "address"],
-        [mockToken1.address, mockToken2.address, ORDER_AMOUNT, TAKING_AMOUNT, maker.address]
+        [await mockToken1.getAddress(), await mockToken2.getAddress(), ORDER_AMOUNT, TAKING_AMOUNT, await maker.getAddress()]
       );
-      const message = ethers.utils.keccak256(orderData);
+      const message = keccak256(orderData);
       const signature = await maker.signMessage(ethers.utils.arrayify(message));
 
       const partialAmount = ORDER_AMOUNT.div(3);
@@ -419,9 +420,9 @@ describe("I1inchFusion Interface", function () {
     it("should validate signatures correctly", async function () {
       const orderData = ethers.utils.defaultAbiCoder.encode(
         ["address", "address", "uint256", "uint256", "address"],
-        [mockToken1.address, mockToken2.address, ORDER_AMOUNT, TAKING_AMOUNT, maker.address]
+        [await mockToken1.getAddress(), await mockToken2.getAddress(), ORDER_AMOUNT, TAKING_AMOUNT, await maker.getAddress()]
       );
-      const message = ethers.utils.keccak256(orderData);
+      const message = keccak256(orderData);
       const validSignature = await maker.signMessage(ethers.utils.arrayify(message));
       const invalidSignature = await taker.signMessage(ethers.utils.arrayify(message));
 
@@ -430,7 +431,7 @@ describe("I1inchFusion Interface", function () {
     });
 
     it("should handle non-existent order queries", async function () {
-      const fakeOrderHash = ethers.utils.keccak256("0x1234");
+      const fakeOrderHash = keccak256("0x1234");
 
       await expect(
         mockFusion.getOrderStatus(fakeOrderHash)
@@ -447,8 +448,8 @@ describe("I1inchFusion Interface", function () {
       // Test that makers don't pay gas for order creation
       // This would be handled by the resolver network
       const orderHash = await mockFusion.connect(maker).createOrder(
-        mockToken1.address,
-        mockToken2.address,
+        await mockToken1.getAddress(),
+        await mockToken2.getAddress(),
         ORDER_AMOUNT,
         TAKING_AMOUNT,
         "0x"
@@ -459,8 +460,8 @@ describe("I1inchFusion Interface", function () {
 
     it("should allow resolver to pay gas for fills", async function () {
       const tx = await mockFusion.connect(maker).createOrder(
-        mockToken1.address,
-        mockToken2.address,
+        await mockToken1.getAddress(),
+        await mockToken2.getAddress(),
         ORDER_AMOUNT,
         TAKING_AMOUNT,
         "0x"
@@ -470,9 +471,9 @@ describe("I1inchFusion Interface", function () {
 
       const orderData = ethers.utils.defaultAbiCoder.encode(
         ["address", "address", "uint256", "uint256", "address"],
-        [mockToken1.address, mockToken2.address, ORDER_AMOUNT, TAKING_AMOUNT, maker.address]
+        [await mockToken1.getAddress(), await mockToken2.getAddress(), ORDER_AMOUNT, TAKING_AMOUNT, await maker.getAddress()]
       );
-      const message = ethers.utils.keccak256(orderData);
+      const message = keccak256(orderData);
       const signature = await maker.signMessage(ethers.utils.arrayify(message));
 
       // Resolver pays gas for fill
@@ -492,8 +493,8 @@ describe("I1inchFusion Interface", function () {
       const resolverBalanceBefore = await resolver.getBalance();
 
       const tx = await mockFusion.connect(maker).createOrder(
-        mockToken1.address,
-        mockToken2.address,
+        await mockToken1.getAddress(),
+        await mockToken2.getAddress(),
         ORDER_AMOUNT,
         TAKING_AMOUNT,
         "0x"
@@ -503,9 +504,9 @@ describe("I1inchFusion Interface", function () {
 
       const orderData = ethers.utils.defaultAbiCoder.encode(
         ["address", "address", "uint256", "uint256", "address"],
-        [mockToken1.address, mockToken2.address, ORDER_AMOUNT, TAKING_AMOUNT, maker.address]
+        [await mockToken1.getAddress(), await mockToken2.getAddress(), ORDER_AMOUNT, TAKING_AMOUNT, await maker.getAddress()]
       );
-      const message = ethers.utils.keccak256(orderData);
+      const message = keccak256(orderData);
       const signature = await maker.signMessage(ethers.utils.arrayify(message));
 
       await mockFusion.connect(resolver).fillOrder(
@@ -525,8 +526,8 @@ describe("I1inchFusion Interface", function () {
     it("should support competitive pricing", async function () {
       // Test that multiple resolvers can compete for better prices
       const orderHash = await mockFusion.connect(maker).createOrder(
-        mockToken1.address,
-        mockToken2.address,
+        await mockToken1.getAddress(),
+        await mockToken2.getAddress(),
         ORDER_AMOUNT,
         TAKING_AMOUNT,
         "0x"
@@ -538,8 +539,8 @@ describe("I1inchFusion Interface", function () {
 
     it("should handle price improvement scenarios", async function () {
       const orderHash = await mockFusion.connect(maker).createOrder(
-        mockToken1.address,
-        mockToken2.address,
+        await mockToken1.getAddress(),
+        await mockToken2.getAddress(),
         ORDER_AMOUNT,
         TAKING_AMOUNT,
         "0x"
@@ -548,9 +549,9 @@ describe("I1inchFusion Interface", function () {
       // Test that makers can receive better prices than requested
       const orderData = ethers.utils.defaultAbiCoder.encode(
         ["address", "address", "uint256", "uint256", "address"],
-        [mockToken1.address, mockToken2.address, ORDER_AMOUNT, TAKING_AMOUNT, maker.address]
+        [await mockToken1.getAddress(), await mockToken2.getAddress(), ORDER_AMOUNT, TAKING_AMOUNT, await maker.getAddress()]
       );
-      const message = ethers.utils.keccak256(orderData);
+      const message = keccak256(orderData);
       const signature = await maker.signMessage(ethers.utils.arrayify(message));
 
       // Resolver might provide better rate
@@ -576,8 +577,8 @@ describe("I1inchFusion Interface", function () {
       );
 
       const orderHash = await mockFusion.connect(maker).createOrder(
-        mockToken1.address,
-        mockToken2.address,
+        await mockToken1.getAddress(),
+        await mockToken2.getAddress(),
         ORDER_AMOUNT,
         TAKING_AMOUNT,
         crossChainData
@@ -596,8 +597,8 @@ describe("I1inchFusion Interface", function () {
 
       await expect(
         mockFusion.connect(maker).createOrder(
-          mockToken1.address,
-          mockToken2.address,
+          await mockToken1.getAddress(),
+          await mockToken2.getAddress(),
           ORDER_AMOUNT,
           TAKING_AMOUNT,
           crossChainData
@@ -609,8 +610,8 @@ describe("I1inchFusion Interface", function () {
   describe("Security and Edge Cases", function () {
     it("should prevent signature replay attacks", async function () {
       const orderHash = await mockFusion.connect(maker).createOrder(
-        mockToken1.address,
-        mockToken2.address,
+        await mockToken1.getAddress(),
+        await mockToken2.getAddress(),
         ORDER_AMOUNT,
         TAKING_AMOUNT,
         "0x"
@@ -618,9 +619,9 @@ describe("I1inchFusion Interface", function () {
 
       const orderData = ethers.utils.defaultAbiCoder.encode(
         ["address", "address", "uint256", "uint256", "address"],
-        [mockToken1.address, mockToken2.address, ORDER_AMOUNT, TAKING_AMOUNT, maker.address]
+        [await mockToken1.getAddress(), await mockToken2.getAddress(), ORDER_AMOUNT, TAKING_AMOUNT, await maker.getAddress()]
       );
-      const message = ethers.utils.keccak256(orderData);
+      const message = keccak256(orderData);
       const signature = await maker.signMessage(ethers.utils.arrayify(message));
 
       // Fill order once
@@ -643,12 +644,12 @@ describe("I1inchFusion Interface", function () {
     });
 
     it("should handle integer overflow/underflow", async function () {
-      const maxUint256 = ethers.constants.MaxUint256;
+      const maxUint256 = MaxUint256;
 
       await expect(
         mockFusion.connect(maker).createOrder(
-          mockToken1.address,
-          mockToken2.address,
+          await mockToken1.getAddress(),
+          await mockToken2.getAddress(),
           maxUint256,
           maxUint256,
           "0x"
@@ -665,8 +666,8 @@ describe("I1inchFusion Interface", function () {
       );
 
       const orderHash = await mockFusion.connect(maker).createOrder(
-        mockToken1.address,
-        mockToken2.address,
+        await mockToken1.getAddress(),
+        await mockToken2.getAddress(),
         ORDER_AMOUNT,
         TAKING_AMOUNT,
         orderDataWithExpiration
@@ -677,9 +678,9 @@ describe("I1inchFusion Interface", function () {
 
       const orderData = ethers.utils.defaultAbiCoder.encode(
         ["address", "address", "uint256", "uint256", "address"],
-        [mockToken1.address, mockToken2.address, ORDER_AMOUNT, TAKING_AMOUNT, maker.address]
+        [await mockToken1.getAddress(), await mockToken2.getAddress(), ORDER_AMOUNT, TAKING_AMOUNT, await maker.getAddress()]
       );
-      const message = ethers.utils.keccak256(orderData);
+      const message = keccak256(orderData);
       const signature = await maker.signMessage(ethers.utils.arrayify(message));
 
       await expect(
@@ -699,8 +700,8 @@ describe("I1inchFusion Interface", function () {
 
         await expect(
           mockFusion.connect(maker).createOrder(
-            mockToken1.address,
-            mockToken2.address,
+            await mockToken1.getAddress(),
+            await mockToken2.getAddress(),
             ORDER_AMOUNT,
             TAKING_AMOUNT,
             "0x"

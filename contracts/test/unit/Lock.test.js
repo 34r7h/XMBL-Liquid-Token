@@ -1,4 +1,5 @@
 const { expect } = require("chai");
+const { parseEther, keccak256, ZeroAddress, MaxUint256, ZeroHash } = require("ethers");
 const { ethers } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
@@ -10,7 +11,7 @@ describe("Lock", function () {
   let user2;
 
   const LOCK_DURATION = 3600; // 1 hour
-  const DEPOSIT_AMOUNT = ethers.utils.parseEther("1.0");
+  const DEPOSIT_AMOUNT = parseEther("1.0");
 
   beforeEach(async function () {
     [owner, otherAccount, user1, user2] = await ethers.getSigners();
@@ -26,7 +27,7 @@ describe("Lock", function () {
       lock = await Lock.deploy(unlockTime, {
         value: DEPOSIT_AMOUNT
       });
-      await lock.deployed();
+      // ethers v6: .deployed() is not needed
     } catch (error) {
       // Lock contract might not be implemented
       console.log("Lock contract not implemented, skipping tests");
@@ -46,7 +47,7 @@ describe("Lock", function () {
 
     it("should receive and store the funds to lock", async function () {
       expect(await lock.getBalance()).to.equal(DEPOSIT_AMOUNT);
-      expect(await ethers.provider.getBalance(lock.address)).to.equal(DEPOSIT_AMOUNT);
+      expect(await ethers.provider.getBalance(await lock.getAddress())).to.equal(DEPOSIT_AMOUNT);
     });
 
     it("should initialize withdrawn flag as false", async function () {
@@ -170,7 +171,7 @@ describe("Lock", function () {
         await lock.withdraw();
         
         expect(await lock.getBalance()).to.equal(0);
-        expect(await ethers.provider.getBalance(lock.address)).to.equal(0);
+        expect(await ethers.provider.getBalance(await lock.getAddress())).to.equal(0);
       });
 
       it("should set withdrawn flag to true", async function () {
@@ -243,7 +244,7 @@ describe("Lock", function () {
 
     it("should handle maximum uint256 unlock time", async function () {
       const Lock = await ethers.getContractFactory("Lock");
-      const maxTime = ethers.constants.MaxUint256;
+      const maxTime = MaxUint256;
       
       const maxLock = await Lock.deploy(maxTime, { value: DEPOSIT_AMOUNT });
       
@@ -290,8 +291,8 @@ describe("Lock", function () {
       // This test assumes owner transfer functionality exists
       // Skip if not implemented
       try {
-        await lock.transferOwnership(otherAccount.address);
-        expect(await lock.getOwner()).to.equal(otherAccount.address);
+        await lock.transferOwnership(await otherAccount.getAddress());
+        expect(await lock.getOwner()).to.equal(await otherAccount.getAddress());
       } catch (error) {
         // Owner transfer not implemented
         this.skip();

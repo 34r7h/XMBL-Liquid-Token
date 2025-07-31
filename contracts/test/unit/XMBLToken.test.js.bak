@@ -10,10 +10,12 @@ describe("XMBLToken", function () {
     // Deploy ERC-6551 Registry
     const ERC6551Registry = await ethers.getContractFactory("ERC6551Registry");
     const registry = await ERC6551Registry.deploy();
+    await registry.waitForDeployment();
     
     // Deploy Token Bound Account implementation
     const TBAImplementation = await ethers.getContractFactory("TBAImplementation");
     const tbaImplementation = await TBAImplementation.deploy();
+    await tbaImplementation.waitForDeployment();
     
     // Deploy XMBLToken
     const XMBLToken = await ethers.getContractFactory("XMBLToken");
@@ -23,6 +25,7 @@ describe("XMBLToken", function () {
       await registry.getAddress(),
       await tbaImplementation.getAddress()
     );
+    await xmblToken.waitForDeployment();
     
     // Grant minter role
     const MINTER_ROLE = await xmblToken.MINTER_ROLE();
@@ -55,7 +58,7 @@ describe("XMBLToken", function () {
       const { xmblToken, owner } = await loadFixture(deployXMBLTokenFixture);
       
       const DEFAULT_ADMIN_ROLE = await xmblToken.DEFAULT_ADMIN_ROLE();
-      expect(await xmblToken.hasRole(DEFAULT_ADMIN_ROLE, owner.address)).to.be.true;
+      expect(await xmblToken.hasRole(DEFAULT_ADMIN_ROLE, await owner.getAddress())).to.be.true;
     });
 
     it("Should initialize with zero total supply", async function () {
@@ -81,71 +84,71 @@ describe("XMBLToken", function () {
     it("Should mint NFT with automatic TBA creation", async function () {
       const { xmblToken, registry, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
-      const depositValue = ethers.parseEther("1.0");
-      const tokenAddress = ethers.ZeroAddress; // ETH
+      const depositValue = ethers.utils.parseEther("1.0");
+      const tokenAddress = ethers.constants.AddressZero; // ETH
       
       const tx = await xmblToken.connect(minter).mintWithTBA(
-        user1.address,
+        user1await .address.getAddress(),
         depositValue,
         tokenAddress
       );
       
       await expect(tx)
         .to.emit(xmblToken, "Transfer")
-        .withArgs(ethers.ZeroAddress, user1.address, 1);
+        .withArgs(ethers.constants.AddressZero, user1await .address.getAddress(), 1);
       
       await expect(tx)
         .to.emit(xmblToken, "TokenBoundAccountCreated")
-        .withArgs(1, await xmblToken.getTokenBoundAccount(1), user1.address);
+        .withArgs(1, await xmblToken.getTokenBoundAccount(1), user1await .address.getAddress());
       
       // Verify NFT ownership
-      expect(await xmblToken.ownerOf(1)).to.equal(user1.address);
-      expect(await xmblToken.balanceOf(user1.address)).to.equal(1);
+      expect(await xmblToken.ownerOf(1)).to.equal(user1await .address.getAddress());
+      expect(await xmblToken.balanceOf(user1await .address.getAddress())).to.equal(1);
       
       // Verify TBA was created
       const tbaAddress = await xmblToken.getTokenBoundAccount(1);
-      expect(tbaAddress).to.not.equal(ethers.ZeroAddress);
+      expect(tbaAddress).to.not.equal(ethers.constants.AddressZero);
       
       // Verify NFT metadata
       const nftData = await xmblToken.getNFTData(1);
       expect(nftData.depositValue).to.equal(depositValue);
       expect(nftData.tokenAddress).to.equal(tokenAddress);
       expect(nftData.tbaAddress).to.equal(tbaAddress);
-      expect(nftData.owner).to.equal(user1.address);
+      expect(nftData.owner).to.equal(user1await .address.getAddress());
     });
 
     it("Should create unique TBAs for each NFT", async function () {
       const { xmblToken, minter, user1, user2 } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.parseEther("1.0"), ethers.ZeroAddress);
-      await xmblToken.connect(minter).mintWithTBA(user2.address, ethers.parseEther("2.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
+      await xmblToken.connect(minter).mintWithTBA(user2await .address.getAddress(), ethers.utils.parseEther("2.0"), ethers.constants.AddressZero);
       
       const tba1 = await xmblToken.getTokenBoundAccount(1);
       const tba2 = await xmblToken.getTokenBoundAccount(2);
       
       expect(tba1).to.not.equal(tba2);
-      expect(tba1).to.not.equal(ethers.ZeroAddress);
-      expect(tba2).to.not.equal(ethers.ZeroAddress);
+      expect(tba1).to.not.equal(ethers.constants.AddressZero);
+      expect(tba2).to.not.equal(ethers.constants.AddressZero);
     });
 
     it("Should only allow minters to mint NFTs", async function () {
       const { xmblToken, user1, user2 } = await loadFixture(deployXMBLTokenFixture);
       
       await expect(
-        xmblToken.connect(user1).mintWithTBA(user2.address, ethers.parseEther("1.0"), ethers.ZeroAddress)
-      ).to.be.revertedWith("AccessControl: account " + user1.address.toLowerCase() + " is missing role");
+        xmblToken.connect(user1).mintWithTBA(user2await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero)
+      ).to.be.revertedWith("AccessControl: account " + user1await .address.getAddress().toLowerCase() + " is missing role");
     });
 
     it("Should increment token IDs correctly", async function () {
       const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.parseEther("1.0"), ethers.ZeroAddress);
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.parseEther("2.0"), ethers.ZeroAddress);
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.parseEther("3.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("2.0"), ethers.constants.AddressZero);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("3.0"), ethers.constants.AddressZero);
       
-      expect(await xmblToken.ownerOf(1)).to.equal(user1.address);
-      expect(await xmblToken.ownerOf(2)).to.equal(user1.address);
-      expect(await xmblToken.ownerOf(3)).to.equal(user1.address);
+      expect(await xmblToken.ownerOf(1)).to.equal(user1await .address.getAddress());
+      expect(await xmblToken.ownerOf(2)).to.equal(user1await .address.getAddress());
+      expect(await xmblToken.ownerOf(3)).to.equal(user1await .address.getAddress());
       expect(await xmblToken.nextTokenId()).to.equal(4);
       expect(await xmblToken.totalSupply()).to.equal(3);
     });
@@ -155,28 +158,28 @@ describe("XMBLToken", function () {
       
       // Zero address recipient
       await expect(
-        xmblToken.connect(minter).mintWithTBA(ethers.ZeroAddress, ethers.parseEther("1.0"), ethers.ZeroAddress)
+        xmblToken.connect(minter).mintWithTBA(ethers.constants.AddressZero, ethers.utils.parseEther("1.0"), ethers.constants.AddressZero)
       ).to.be.revertedWith("Cannot mint to zero address");
       
       // Zero deposit value
       await expect(
-        xmblToken.connect(minter).mintWithTBA(user1.address, 0, ethers.ZeroAddress)
+        xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), 0, ethers.constants.AddressZero)
       ).to.be.revertedWith("Deposit value must be greater than zero");
     });
   });
 
   describe("Token Bound Account Operations", function () {
-    it.skip("Should calculate correct TBA address using ERC-6551 standard", async function () {
+    it("Should calculate correct TBA address using ERC-6551 standard", async function () {
       const { xmblToken, registry, tbaImplementation, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.parseEther("1.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
       
       const tokenId = 1;
       const chainId = await ethers.provider.getNetwork().then(n => n.chainId);
       
       // Calculate expected TBA address
-      const salt = BigInt(tokenId);
-      const expectedTBA = await registry.account(await tbaImplementation.getAddress(), salt, chainId, await xmblToken.getAddress(), tokenId);
+      const salt = ethers.BigNumber.from(tokenId);
+      const expectedTBA = await registry.account(tbaImplementationawait .address.getAddress(), salt, chainId, xmblTokenawait .address.getAddress(), tokenId);
       
       const actualTBA = await xmblToken.getTokenBoundAccount(tokenId);
       
@@ -186,43 +189,43 @@ describe("XMBLToken", function () {
     it("Should verify TBA ownership correctly", async function () {
       const { xmblToken, minter, user1, user2 } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.parseEther("1.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
       
-      expect(await xmblToken.isValidTBAOwner(1, user1.address)).to.be.true;
-      expect(await xmblToken.isValidTBAOwner(1, user2.address)).to.be.false;
+      expect(await xmblToken.isValidTBAOwner(1, user1await .address.getAddress())).to.be.true;
+      expect(await xmblToken.isValidTBAOwner(1, user2await .address.getAddress())).to.be.false;
     });
 
     it("Should handle TBA operations after NFT transfer", async function () {
       const { xmblToken, minter, user1, user2 } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.parseEther("1.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
       
       const tbaAddress = await xmblToken.getTokenBoundAccount(1);
       
       // Transfer NFT
-      await xmblToken.connect(user1).transferFrom(user1.address, user2.address, 1);
+      await xmblToken.connect(user1).transferFrom(user1await .address.getAddress(), user2await .address.getAddress(), 1);
       
       // TBA address should remain the same
       expect(await xmblToken.getTokenBoundAccount(1)).to.equal(tbaAddress);
       
       // But ownership should transfer
-      expect(await xmblToken.isValidTBAOwner(1, user1.address)).to.be.false;
-      expect(await xmblToken.isValidTBAOwner(1, user2.address)).to.be.true;
+      expect(await xmblToken.isValidTBAOwner(1, user1await .address.getAddress())).to.be.false;
+      expect(await xmblToken.isValidTBAOwner(1, user2await .address.getAddress())).to.be.true;
     });
 
-    it.skip("Should allow TBA execution only by NFT owner", async function () {
+    it("Should allow TBA execution only by NFT owner", async function () {
       const { xmblToken, minter, user1, user2 } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.parseEther("1.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
       
       const callData = "0x"; // Empty call data for testing
       
       await expect(
-        xmblToken.connect(user1).executeTBACall(1, user2.address, 0, callData)
+        xmblToken.connect(user1).executeTBACall(1, user2await .address.getAddress(), 0, callData)
       ).to.not.be.reverted;
       
       await expect(
-        xmblToken.connect(user2).executeTBACall(1, user2.address, 0, callData)
+        xmblToken.connect(user2).executeTBACall(1, user2await .address.getAddress(), 0, callData)
       ).to.be.revertedWith("Not NFT owner");
     });
 
@@ -234,33 +237,33 @@ describe("XMBLToken", function () {
       ).to.be.revertedWith("Token does not exist");
       
       await expect(
-        xmblToken.connect(user1).executeTBACall(999, user1.address, 0, "0x")
+        xmblToken.connect(user1).executeTBACall(999, user1await .address.getAddress(), 0, "0x")
       ).to.be.revertedWith("Token does not exist");
     });
   });
 
   describe("NFT Metadata and Data", function () {
-    it.skip("Should store and retrieve complete NFT data", async function () {
+    it("Should store and retrieve complete NFT data", async function () {
       const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
-      const depositValue = ethers.parseEther("1.5");
+      const depositValue = ethers.utils.parseEther("1.5");
       const tokenAddress = "0xA0b86a33E6417aAb8C23EA0b2e0a8f90EA41a98e"; // USDC
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, depositValue, tokenAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), depositValue, tokenAddress);
       
       const nftData = await xmblToken.getNFTData(1);
       
       expect(nftData.depositValue).to.equal(depositValue);
       expect(nftData.tokenAddress).to.equal(tokenAddress);
-      expect(nftData.owner).to.equal(user1.address);
-      expect(nftData.tbaAddress).to.not.equal(ethers.ZeroAddress);
+      expect(nftData.owner).to.equal(user1await .address.getAddress());
+      expect(nftData.tbaAddress).to.not.equal(ethers.constants.AddressZero);
       expect(nftData.createdAt).to.be.gt(0);
     });
 
     it("Should generate proper token URI with metadata", async function () {
       const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.parseEther("1.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
       
       const tokenURI = await xmblToken.tokenURI(1);
       
@@ -285,17 +288,17 @@ describe("XMBLToken", function () {
       expect(tbaAddressAttr).to.exist;
     });
 
-    it.skip("Should update metadata after TBA receives assets", async function () {
+    it("Should update metadata after TBA receives assets", async function () {
       const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.parseEther("1.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
       
       const tbaAddress = await xmblToken.getTokenBoundAccount(1);
       
       // Send ETH to TBA
       await user1.sendTransaction({
         to: tbaAddress,
-        value: ethers.parseEther("0.5")
+        value: ethers.utils.parseEther("0.5")
       });
       
       // Update TBA balance in metadata
@@ -317,10 +320,10 @@ describe("XMBLToken", function () {
       ).to.be.revertedWith("Token does not exist");
     });
 
-    it.skip("Should allow metadata updates by authorized accounts", async function () {
+    it("Should allow metadata updates by authorized accounts", async function () {
       const { xmblToken, owner, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.parseEther("1.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
       
       const newDescription = "Updated XMBL NFT with enhanced features";
       
@@ -339,23 +342,23 @@ describe("XMBLToken", function () {
       const { xmblToken, minter, user1, user2 } = await loadFixture(deployXMBLTokenFixture);
       
       // Mint multiple NFTs to user1
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.parseEther("1.0"), ethers.ZeroAddress);
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.parseEther("2.0"), ethers.ZeroAddress);
-      await xmblToken.connect(minter).mintWithTBA(user2.address, ethers.parseEther("3.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("2.0"), ethers.constants.AddressZero);
+      await xmblToken.connect(minter).mintWithTBA(user2await .address.getAddress(), ethers.utils.parseEther("3.0"), ethers.constants.AddressZero);
       
-      const user1Tokens = await xmblToken.getUserTokens(user1.address);
-      const user2Tokens = await xmblToken.getUserTokens(user2.address);
+      const user1Tokens = await xmblToken.getUserTokens(user1await .address.getAddress());
+      const user2Tokens = await xmblToken.getUserTokens(user2await .address.getAddress());
       
-      expect(user1Tokens).to.deep.equal([1n, 2n]);
-      expect(user2Tokens).to.deep.equal([3n]);
+      expect(user1Tokens).to.deep.equal([ethers.BigNumber.from(1), ethers.BigNumber.from(2)]);
+      expect(user2Tokens).to.deep.equal([ethers.BigNumber.from(3)]);
     });
 
-    it.skip("Should get batch NFT data efficiently", async function () {
+    it("Should get batch NFT data efficiently", async function () {
       const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.parseEther("1.0"), ethers.ZeroAddress);
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.utils.parseEther("2.0"), ethers.ZeroAddress);
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.utils.parseEther("3.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("2.0"), ethers.constants.AddressZero);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("3.0"), ethers.constants.AddressZero);
       
       const batchData = await xmblToken.getBatchNFTData([1, 2, 3]);
       
@@ -365,13 +368,13 @@ describe("XMBLToken", function () {
       expect(batchData[2].depositValue).to.equal(ethers.utils.parseEther("3.0"));
     });
 
-    it.skip("Should get user's complete portfolio data", async function () {
+    it("Should get user's complete portfolio data", async function () {
       const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.utils.parseEther("1.0"), ethers.ZeroAddress);
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.utils.parseEther("2.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("2.0"), ethers.constants.AddressZero);
       
-      const portfolio = await xmblToken.getUserPortfolio(user1.address);
+      const portfolio = await xmblToken.getUserPortfolio(user1await .address.getAddress());
       
       expect(portfolio.tokenIds).to.have.lengthOf(2);
       expect(portfolio.nftData).to.have.lengthOf(2);
@@ -381,7 +384,7 @@ describe("XMBLToken", function () {
     it("Should handle empty portfolios", async function () {
       const { xmblToken, user1 } = await loadFixture(deployXMBLTokenFixture);
       
-      const portfolio = await xmblToken.getUserPortfolio(user1.address);
+      const portfolio = await xmblToken.getUserPortfolio(user1await .address.getAddress());
       
       expect(portfolio.tokenIds).to.have.lengthOf(0);
       expect(portfolio.nftData).to.have.lengthOf(0);
@@ -390,16 +393,16 @@ describe("XMBLToken", function () {
   });
 
   describe("Burning and Withdrawal", function () {
-    it.skip("Should allow NFT burning by authorized accounts", async function () {
+    it("Should allow NFT burning by authorized accounts", async function () {
       const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.utils.parseEther("1.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
       
       const tx = await xmblToken.connect(minter).burn(1);
       
       await expect(tx)
         .to.emit(xmblToken, "Transfer")
-        .withArgs(user1.address, ethers.ZeroAddress, 1);
+        .withArgs(user1await .address.getAddress(), ethers.constants.AddressZero, 1);
       
       await expect(
         xmblToken.ownerOf(1)
@@ -408,10 +411,10 @@ describe("XMBLToken", function () {
       expect(await xmblToken.totalSupply()).to.equal(0);
     });
 
-    it.skip("Should clean up data when burning NFT", async function () {
+    it("Should clean up data when burning NFT", async function () {
       const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.utils.parseEther("1.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
       
       await xmblToken.connect(minter).burn(1);
       
@@ -425,18 +428,18 @@ describe("XMBLToken", function () {
       ).to.be.revertedWith("Token does not exist");
     });
 
-    it.skip("Should only allow authorized burning", async function () {
+    it("Should only allow authorized burning", async function () {
       const { xmblToken, minter, user1, user2 } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.utils.parseEther("1.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
       
       await expect(
         xmblToken.connect(user1).burn(1)
-      ).to.be.revertedWith("AccessControl: account " + user1.address.toLowerCase() + " is missing role");
+      ).to.be.revertedWith("AccessControl: account " + user1await .address.getAddress().toLowerCase() + " is missing role");
       
       await expect(
         xmblToken.connect(user2).burn(1)
-      ).to.be.revertedWith("AccessControl: account " + user2.address.toLowerCase() + " is missing role");
+      ).to.be.revertedWith("AccessControl: account " + user2await .address.getAddress().toLowerCase() + " is missing role");
     });
 
     it("Should handle burning non-existent tokens", async function () {
@@ -449,44 +452,44 @@ describe("XMBLToken", function () {
   });
 
   describe("Access Control", function () {
-    it.skip("Should manage minter roles correctly", async function () {
+    it("Should manage minter roles correctly", async function () {
       const { xmblToken, owner, user1, MINTER_ROLE } = await loadFixture(deployXMBLTokenFixture);
       
-      expect(await xmblToken.hasRole(MINTER_ROLE, user1.address)).to.be.false;
+      expect(await xmblToken.hasRole(MINTER_ROLE, user1await .address.getAddress())).to.be.false;
       
-      await xmblToken.connect(owner).grantRole(MINTER_ROLE, user1.address);
+      await xmblToken.connect(owner).grantRole(MINTER_ROLE, user1await .address.getAddress());
       
-      expect(await xmblToken.hasRole(MINTER_ROLE, user1.address)).to.be.true;
+      expect(await xmblToken.hasRole(MINTER_ROLE, user1await .address.getAddress())).to.be.true;
       
       // user1 should now be able to mint
-      await xmblToken.connect(user1).mintWithTBA(user1.address, ethers.utils.parseEther("1.0"), ethers.ZeroAddress);
+      await xmblToken.connect(user1).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
       
-      expect(await xmblToken.ownerOf(1)).to.equal(user1.address);
+      expect(await xmblToken.ownerOf(1)).to.equal(user1await .address.getAddress());
     });
 
-    it.skip("Should revoke minter roles", async function () {
+    it("Should revoke minter roles", async function () {
       const { xmblToken, owner, minter, user1, MINTER_ROLE } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(owner).revokeRole(MINTER_ROLE, await minter.getAddress());
+      await xmblToken.connect(owner).revokeRole(MINTER_ROLE, minterawait .address.getAddress());
       
-      expect(await xmblToken.hasRole(MINTER_ROLE, await minter.getAddress())).to.be.false;
+      expect(await xmblToken.hasRole(MINTER_ROLE, minterawait .address.getAddress())).to.be.false;
       
       await expect(
-        xmblToken.connect(minter).mintWithTBA(user1.address, ethers.utils.parseEther("1.0"), ethers.ZeroAddress)
-      ).to.be.revertedWith("AccessControl: account " + await minter.getAddress().toLowerCase() + " is missing role");
+        xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero)
+      ).to.be.revertedWith("AccessControl: account " + minterawait .address.getAddress().toLowerCase() + " is missing role");
     });
 
     it("Should prevent unauthorized role management", async function () {
       const { xmblToken, user1, user2, MINTER_ROLE } = await loadFixture(deployXMBLTokenFixture);
       
       await expect(
-        xmblToken.connect(user1).grantRole(MINTER_ROLE, user2.address)
-      ).to.be.revertedWith("AccessControl: account " + user1.address.toLowerCase() + " is missing role");
+        xmblToken.connect(user1).grantRole(MINTER_ROLE, user2await .address.getAddress())
+      ).to.be.revertedWith("AccessControl: account " + user1await .address.getAddress().toLowerCase() + " is missing role");
     });
   });
 
   describe("Gas Optimization", function () {
-    it.skip("Should mint multiple NFTs efficiently", async function () {
+    it("Should mint multiple NFTs efficiently", async function () {
       const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
       const depositValues = [
@@ -497,50 +500,50 @@ describe("XMBLToken", function () {
         ethers.utils.parseEther("5.0")
       ];
       
-      const recipients = [user1.address, user1.address, user1.address, user1.address, user1.address];
+      const recipients = [user1await .address.getAddress(), user1await .address.getAddress(), user1await .address.getAddress(), user1await .address.getAddress(), user1await .address.getAddress()];
       const tokenAddresses = [
-        ethers.ZeroAddress,
-        ethers.ZeroAddress,
-        ethers.ZeroAddress,
-        ethers.ZeroAddress,
-        ethers.ZeroAddress
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero
       ];
       
       await xmblToken.connect(minter).batchMintWithTBA(recipients, depositValues, tokenAddresses);
       
-      expect(await xmblToken.balanceOf(user1.address)).to.equal(5);
+      expect(await xmblToken.balanceOf(user1await .address.getAddress())).to.equal(5);
       expect(await xmblToken.totalSupply()).to.equal(5);
       
       // Verify all NFTs have TBAs
       for (let i = 1; i <= 5; i++) {
         const tbaAddress = await xmblToken.getTokenBoundAccount(i);
-        expect(tbaAddress).to.not.equal(ethers.ZeroAddress);
+        expect(tbaAddress).to.not.equal(ethers.constants.AddressZero);
       }
     });
 
-    it.skip("Should handle large batch operations efficiently", async function () {
+    it("Should handle large batch operations efficiently", async function () {
       const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
       const batchSize = 20;
-      const recipients = new Array(batchSize).fill(user1.address);
+      const recipients = new Array(batchSize).fill(user1await .address.getAddress());
       const depositValues = new Array(batchSize).fill(ethers.utils.parseEther("1.0"));
-      const tokenAddresses = new Array(batchSize).fill(ethers.ZeroAddress);
+      const tokenAddresses = new Array(batchSize).fill(ethers.constants.AddressZero);
       
       await xmblToken.connect(minter).batchMintWithTBA(recipients, depositValues, tokenAddresses);
       
-      expect(await xmblToken.balanceOf(user1.address)).to.equal(batchSize);
+      expect(await xmblToken.balanceOf(user1await .address.getAddress())).to.equal(batchSize);
       expect(await xmblToken.totalSupply()).to.equal(batchSize);
     });
 
-    it.skip("Should validate batch parameters", async function () {
+    it("Should validate batch parameters", async function () {
       const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
       // Mismatched array lengths
       await expect(
         xmblToken.connect(minter).batchMintWithTBA(
-          [user1.address],
+          [user1await .address.getAddress()],
           [ethers.utils.parseEther("1.0"), ethers.utils.parseEther("2.0")],
-          [ethers.ZeroAddress]
+          [ethers.constants.AddressZero]
         )
       ).to.be.revertedWith("Array length mismatch");
       
@@ -552,14 +555,14 @@ describe("XMBLToken", function () {
   });
 
   describe("Integration with DeFi Protocols", function () {
-    it.skip("Should allow TBA to interact with external contracts", async function () {
+    it("Should allow TBA to interact with external contracts", async function () {
       const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
       // Deploy a simple mock DeFi contract
       const MockDeFi = await ethers.getContractFactory("MockDeFiProtocol");
       const mockDefi = await MockDeFi.deploy();
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.utils.parseEther("1.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
       
       const tbaAddress = await xmblToken.getTokenBoundAccount(1);
       
@@ -572,56 +575,109 @@ describe("XMBLToken", function () {
       // Execute DeFi interaction through TBA
       const stakeData = mockDefi.interface.encodeFunctionData("stake", []);
       
-      await xmblToken.connect(user1).executeTBACall(1, await mockDefi.getAddress(), ethers.utils.parseEther("0.1"), stakeData);
+      await xmblToken.connect(user1).executeTBACall(1, mockDefiawait .address.getAddress(), ethers.utils.parseEther("0.1"), stakeData);
       
       // Verify interaction was successful
       expect(await mockDefi.stakedAmount(tbaAddress)).to.equal(ethers.utils.parseEther("0.1"));
     });
 
     it("Should track TBA DeFi positions in metadata", async function () {
-      // Skipping: getTBAPositions not implemented in contract
-      return;
+      const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
+      
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
+      
+      // Simulate DeFi position tracking
+      await xmblToken.addTBAPosition(1, "Compound", "cETH", ethers.utils.parseEther("0.5"));
+      
+      const positions = await xmblToken.getTBAPositions(1);
+      
+      expect(positions).to.have.lengthOf(1);
+      expect(positions[0].protocol).to.equal("Compound");
+      expect(positions[0].asset).to.equal("cETH");
+      expect(positions[0].amount).to.equal(ethers.utils.parseEther("0.5"));
     });
 
     it("Should allow automated yield compounding through TBA", async function () {
-      // Skipping: isAutoCompoundEnabled not implemented in contract
-      return;
+      const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
+      
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
+      
+      const tbaAddress = await xmblToken.getTokenBoundAccount(1);
+      
+      // Send yield to TBA
+      await user1.sendTransaction({
+        to: tbaAddress,
+        value: ethers.utils.parseEther("0.1")
+      });
+      
+      // Enable auto-compound
+      await xmblToken.connect(user1).setAutoCompound(1, true);
+      
+      expect(await xmblToken.isAutoCompoundEnabled(1)).to.be.true;
     });
   });
 
   describe("Security and Edge Cases", function () {
-    it.skip("Should prevent TBA address collision", async function () {
+    it("Should prevent TBA address collision", async function () {
       const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.utils.parseEther("1.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
       await xmblToken.connect(minter).burn(1);
-      await xmblToken.connect(minter).mintWithTBA(user1.address, ethers.utils.parseEther("1.0"), ethers.ZeroAddress);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
       
       // Token ID 2 should be minted (not reusing ID 1)
-      expect(await xmblToken.ownerOf(2)).to.equal(user1.address);
+      expect(await xmblToken.ownerOf(2)).to.equal(user1await .address.getAddress());
       
       const tba1 = await xmblToken.getTokenBoundAccount(2);
-      expect(tba1).to.not.equal(ethers.ZeroAddress);
+      expect(tba1).to.not.equal(ethers.constants.AddressZero);
     });
 
     it("Should handle contract upgrades gracefully", async function () {
-      // Skipping: contract upgrade logic not implemented in contract
-      return;
+      const { xmblToken, owner, registry, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
+      
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
+      
+      // Deploy new TBA implementation
+      const NewTBAImplementation = await ethers.getContractFactory("TBAImplementationV2");
+      const newTbaImplementation = await NewTBAImplementation.deploy();
+      
+      // Update TBA implementation
+      await xmblToken.connect(owner).updateTBAImplementation(newTbaImplementationawait .address.getAddress());
+      
+      expect(await xmblToken.tbaImplementation()).to.equal(newTbaImplementationawait .address.getAddress());
+      
+      // New NFTs should use new implementation
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("2.0"), ethers.constants.AddressZero);
+      
+      const tba2 = await xmblToken.getTokenBoundAccount(2);
+      expect(tba2).to.not.equal(ethers.constants.AddressZero);
     });
 
     it("Should validate all contract interactions", async function () {
-      // Skipping: contract does not implement these revert reasons
-      return;
+      const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
+      
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), ethers.utils.parseEther("1.0"), ethers.constants.AddressZero);
+      
+      // Invalid contract call
+      await expect(
+        xmblToken.connect(user1).executeTBACall(1, ethers.constants.AddressZero, 0, "0x")
+      ).to.be.revertedWith("Invalid target address");
+      
+      // Call with insufficient TBA balance
+      await expect(
+        xmblToken.connect(user1).executeTBACall(1, user1await .address.getAddress(), ethers.utils.parseEther("10.0"), "0x")
+      ).to.be.revertedWith("Insufficient TBA balance");
     });
 
-    it.skip("Should handle extreme values correctly", async function () {
+    it("Should handle extreme values correctly", async function () {
       const { xmblToken, minter, user1 } = await loadFixture(deployXMBLTokenFixture);
       
       // Maximum uint256 deposit value
-      const maxValue = ethers.MaxUint256;
+      const maxValue = ethers.constants.MaxUint256;
       
-      await xmblToken.connect(minter).mintWithTBA(user1.address, maxValue, ethers.ZeroAddress);
-blToken.getNFTData(1);
+      await xmblToken.connect(minter).mintWithTBA(user1await .address.getAddress(), maxValue, ethers.constants.AddressZero);
+      
+      const nftData = await xmblToken.getNFTData(1);
       expect(nftData.depositValue).to.equal(maxValue);
     });
   });

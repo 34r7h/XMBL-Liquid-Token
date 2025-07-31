@@ -92,5 +92,23 @@ pragma solidity ^0.8.19;
  * - TBA ownership verification for sensitive operations
  */
 contract XMBLVault {
-    // TODO: Implement contract logic
+    address public xmblToken;
+    address public wbtcToken;
+    address public erc6551Registry;
+    address public tbaImplementation;
+    address public yieldManager;
+
+    constructor(
+        address _xmblToken,
+        address _wbtcToken,
+        address _erc6551Registry,
+        address _tbaImplementation,
+        address _yieldManager
+    ) {
+        xmblToken = _xmblToken;
+        wbtcToken = _wbtcToken;
+        erc6551Registry = _erc6551Registry;
+        tbaImplementation = _tbaImplementation;
+        yieldManager = _yieldManager;
+    }
 }

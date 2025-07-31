@@ -1,4 +1,5 @@
 const { expect } = require("chai");
+const { parseEther, keccak256, ZeroAddress, MaxUint256, ZeroHash } = require("ethers");
 const { ethers } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
@@ -12,8 +13,8 @@ describe("OneInchHelper", function () {
   let mockToken2;
   let mockRouter;
 
-  const SWAP_AMOUNT = ethers.utils.parseEther("100");
-  const MIN_RETURN = ethers.utils.parseEther("95");
+  const SWAP_AMOUNT = parseEther("100");
+  const MIN_RETURN = parseEther("95");
   const MAX_SLIPPAGE = 1000; // 10%
   const BASIS_POINTS = 10000;
   const DEFAULT_GAS_LIMIT = 300000;
@@ -26,9 +27,9 @@ describe("OneInchHelper", function () {
     mockToken1 = await MockERC20.deploy("Token1", "TK1", 18);
     mockToken2 = await MockERC20.deploy("Token2", "TK2", 18);
     await mockToken1.deployed();
-    await mockToken2.deployed();
-
-    // Deploy mock 1inch router
+    // ethers v6: .deployed() is not needed
+    // ethers v6: .deployed() is not needed
+    // ethers v6: .deployed() is not needed
     const MockOneInchRouter = await ethers.getContractFactory("MockOneInchRouter");
     mockRouter = await MockOneInchRouter.deploy();
     await mockRouter.deployed();
@@ -38,7 +39,7 @@ describe("OneInchHelper", function () {
       // Deploy test contract that uses OneInchHelper library
       const OneInchHelperTest = await ethers.getContractFactory("OneInchHelperTest");
       testContract = await OneInchHelperTest.deploy();
-      await testContract.deployed();
+      // ethers v6: .deployed() is not needed
     } catch (error) {
       console.log("OneInchHelper library not implemented, skipping tests");
       this.skip();
@@ -61,10 +62,10 @@ describe("OneInchHelper", function () {
 
   describe("Limit Order Construction", function () {
     it("should build limit order correctly", async function () {
-      const makerAsset = mockToken1.address;
-      const takerAsset = mockToken2.address;
-      const makingAmount = ethers.utils.parseEther("100");
-      const takingAmount = ethers.utils.parseEther("95");
+      const makerAsset = await mockToken1.getAddress();
+      const takerAsset = await mockToken2.getAddress();
+      const makingAmount = parseEther("100");
+      const takingAmount = parseEther("95");
       const maker = user1.address;
 
       const orderData = await testContract.buildLimitOrder(
@@ -80,10 +81,10 @@ describe("OneInchHelper", function () {
     });
 
     it("should handle zero amounts in limit orders", async function () {
-      const makerAsset = mockToken1.address;
-      const takerAsset = mockToken2.address;
+      const makerAsset = await mockToken1.getAddress();
+      const takerAsset = await mockToken2.getAddress();
       const makingAmount = 0;
-      const takingAmount = ethers.utils.parseEther("95");
+      const takingAmount = parseEther("95");
       const maker = user1.address;
 
       await expect(
@@ -94,8 +95,8 @@ describe("OneInchHelper", function () {
     it("should reject invalid token addresses", async function () {
       await expect(
         testContract.buildLimitOrder(
-          ethers.constants.AddressZero,
-          mockToken2.address,
+          ZeroAddress,
+          await mockToken2.getAddress(),
           SWAP_AMOUNT,
           MIN_RETURN,
           user1.address
@@ -104,8 +105,8 @@ describe("OneInchHelper", function () {
 
       await expect(
         testContract.buildLimitOrder(
-          mockToken1.address,
-          ethers.constants.AddressZero,
+          await mockToken1.getAddress(),
+          ZeroAddress,
           SWAP_AMOUNT,
           MIN_RETURN,
           user1.address
@@ -116,27 +117,27 @@ describe("OneInchHelper", function () {
     it("should reject invalid maker address", async function () {
       await expect(
         testContract.buildLimitOrder(
-          mockToken1.address,
-          mockToken2.address,
+          await mockToken1.getAddress(),
+          await mockToken2.getAddress(),
           SWAP_AMOUNT,
           MIN_RETURN,
-          ethers.constants.AddressZero
+          ZeroAddress
         )
       ).to.be.revertedWith("Invalid maker address");
     });
 
     it("should create different orders for different parameters", async function () {
       const order1 = await testContract.buildLimitOrder(
-        mockToken1.address,
-        mockToken2.address,
+        await mockToken1.getAddress(),
+        await mockToken2.getAddress(),
         SWAP_AMOUNT,
         MIN_RETURN,
         user1.address
       );
 
       const order2 = await testContract.buildLimitOrder(
-        mockToken1.address,
-        mockToken2.address,
+        await mockToken1.getAddress(),
+        await mockToken2.getAddress(),
         SWAP_AMOUNT.mul(2),
         MIN_RETURN.mul(2),
         user1.address
@@ -148,20 +149,20 @@ describe("OneInchHelper", function () {
 
   describe("Slippage Calculation", function () {
     it("should calculate optimal slippage correctly", async function () {
-      const amount = ethers.utils.parseEther("100");
-      const marketPrice = ethers.utils.parseEther("1.0");
+      const amount = parseEther("100");
+      const marketPrice = parseEther("1.0");
       const maxSlippage = 500; // 5%
 
       const minReturn = await testContract.calculateOptimalSlippage(amount, marketPrice, maxSlippage);
       
       // Should be 95% of expected return (5% slippage)
       const expectedMinReturn = amount.mul(marketPrice).mul(9500).div(10000);
-      expect(minReturn).to.be.closeTo(expectedMinReturn, ethers.utils.parseEther("0.1"));
+      expect(minReturn).to.be.closeTo(expectedMinReturn, parseEther("0.1"));
     });
 
     it("should handle zero slippage", async function () {
-      const amount = ethers.utils.parseEther("100");
-      const marketPrice = ethers.utils.parseEther("1.0");
+      const amount = parseEther("100");
+      const marketPrice = parseEther("1.0");
       const maxSlippage = 0;
 
       const minReturn = await testContract.calculateOptimalSlippage(amount, marketPrice, maxSlippage);
@@ -170,19 +171,19 @@ describe("OneInchHelper", function () {
     });
 
     it("should handle maximum slippage", async function () {
-      const amount = ethers.utils.parseEther("100");
-      const marketPrice = ethers.utils.parseEther("1.0");
+      const amount = parseEther("100");
+      const marketPrice = parseEther("1.0");
       const maxSlippage = MAX_SLIPPAGE; // 10%
 
       const minReturn = await testContract.calculateOptimalSlippage(amount, marketPrice, maxSlippage);
       
       const expectedMinReturn = amount.mul(marketPrice).mul(9000).div(10000);
-      expect(minReturn).to.be.closeTo(expectedMinReturn, ethers.utils.parseEther("0.1"));
+      expect(minReturn).to.be.closeTo(expectedMinReturn, parseEther("0.1"));
     });
 
     it("should reject excessive slippage", async function () {
-      const amount = ethers.utils.parseEther("100");
-      const marketPrice = ethers.utils.parseEther("1.0");
+      const amount = parseEther("100");
+      const marketPrice = parseEther("1.0");
       const excessiveSlippage = 1500; // 15% > 10% max
 
       await expect(
@@ -191,9 +192,9 @@ describe("OneInchHelper", function () {
     });
 
     it("should handle price variations correctly", async function () {
-      const amount = ethers.utils.parseEther("100");
-      const lowPrice = ethers.utils.parseEther("0.5");
-      const highPrice = ethers.utils.parseEther("2.0");
+      const amount = parseEther("100");
+      const lowPrice = parseEther("0.5");
+      const highPrice = parseEther("2.0");
       const slippage = 500; // 5%
 
       const minReturnLow = await testContract.calculateOptimalSlippage(amount, lowPrice, slippage);
@@ -205,8 +206,8 @@ describe("OneInchHelper", function () {
 
   describe("Swap Data Encoding", function () {
     it("should encode swap data correctly", async function () {
-      const fromToken = mockToken1.address;
-      const toToken = mockToken2.address;
+      const fromToken = await mockToken1.getAddress();
+      const toToken = await mockToken2.getAddress();
       const amount = SWAP_AMOUNT;
       const routerCalldata = ethers.utils.hexlify(ethers.utils.randomBytes(32));
 
@@ -217,8 +218,8 @@ describe("OneInchHelper", function () {
     });
 
     it("should handle empty router calldata", async function () {
-      const fromToken = mockToken1.address;
-      const toToken = mockToken2.address;
+      const fromToken = await mockToken1.getAddress();
+      const toToken = await mockToken2.getAddress();
       const amount = SWAP_AMOUNT;
       const emptyCalldata = "0x";
 
@@ -231,11 +232,11 @@ describe("OneInchHelper", function () {
       const routerCalldata = ethers.utils.hexlify(ethers.utils.randomBytes(32));
 
       await expect(
-        testContract.encodeSwapData(ethers.constants.AddressZero, mockToken2.address, SWAP_AMOUNT, routerCalldata)
+        testContract.encodeSwapData(ZeroAddress, await mockToken2.getAddress(), SWAP_AMOUNT, routerCalldata)
       ).to.be.revertedWith("Invalid from token");
 
       await expect(
-        testContract.encodeSwapData(mockToken1.address, ethers.constants.AddressZero, SWAP_AMOUNT, routerCalldata)
+        testContract.encodeSwapData(await mockToken1.getAddress(), ZeroAddress, SWAP_AMOUNT, routerCalldata)
       ).to.be.revertedWith("Invalid to token");
     });
 
@@ -243,14 +244,14 @@ describe("OneInchHelper", function () {
       const routerCalldata = ethers.utils.hexlify(ethers.utils.randomBytes(32));
 
       await expect(
-        testContract.encodeSwapData(mockToken1.address, mockToken2.address, 0, routerCalldata)
+        testContract.encodeSwapData(await mockToken1.getAddress(), await mockToken2.getAddress(), 0, routerCalldata)
       ).to.be.revertedWith("Amount must be greater than zero");
     });
   });
 
   describe("Order Signature Validation", function () {
     it("should validate correct order signature", async function () {
-      const orderHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("test order"));
+      const orderHash = keccak256(ethers.utils.toUtf8Bytes("test order"));
       const signature = await user1.signMessage(ethers.utils.arrayify(orderHash));
       
       const isValid = await testContract.validateOrderSignature(orderHash, signature, user1.address);
@@ -259,7 +260,7 @@ describe("OneInchHelper", function () {
     });
 
     it("should reject invalid signature", async function () {
-      const orderHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("test order"));
+      const orderHash = keccak256(ethers.utils.toUtf8Bytes("test order"));
       const wrongSignature = await user2.signMessage(ethers.utils.arrayify(orderHash));
       
       const isValid = await testContract.validateOrderSignature(orderHash, wrongSignature, user1.address);
@@ -268,7 +269,7 @@ describe("OneInchHelper", function () {
     });
 
     it("should reject malformed signature", async function () {
-      const orderHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("test order"));
+      const orderHash = keccak256(ethers.utils.toUtf8Bytes("test order"));
       const malformedSignature = "0x1234";
       
       await expect(
@@ -277,7 +278,7 @@ describe("OneInchHelper", function () {
     });
 
     it("should handle empty signature", async function () {
-      const orderHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("test order"));
+      const orderHash = keccak256(ethers.utils.toUtf8Bytes("test order"));
       const emptySignature = "0x";
       
       await expect(
@@ -288,7 +289,7 @@ describe("OneInchHelper", function () {
 
   describe("Fee Calculation", function () {
     it("should calculate fees correctly", async function () {
-      const amount = ethers.utils.parseEther("100");
+      const amount = parseEther("100");
       const feeRate = 50; // 0.5%
 
       const [protocolFee, netAmount] = await testContract.calculateFees(amount, feeRate);
@@ -301,7 +302,7 @@ describe("OneInchHelper", function () {
     });
 
     it("should handle zero fee rate", async function () {
-      const amount = ethers.utils.parseEther("100");
+      const amount = parseEther("100");
       const feeRate = 0;
 
       const [protocolFee, netAmount] = await testContract.calculateFees(amount, feeRate);
@@ -311,7 +312,7 @@ describe("OneInchHelper", function () {
     });
 
     it("should handle maximum fee rate", async function () {
-      const amount = ethers.utils.parseEther("100");
+      const amount = parseEther("100");
       const maxFeeRate = 1000; // 10%
 
       const [protocolFee, netAmount] = await testContract.calculateFees(amount, maxFeeRate);
@@ -321,7 +322,7 @@ describe("OneInchHelper", function () {
     });
 
     it("should reject excessive fee rates", async function () {
-      const amount = ethers.utils.parseEther("100");
+      const amount = parseEther("100");
       const excessiveFeeRate = 5000; // 50%
 
       await expect(
@@ -341,8 +342,8 @@ describe("OneInchHelper", function () {
 
   describe("Predicate Condition Building", function () {
     it("should build predicate condition correctly", async function () {
-      const minPrice = ethers.utils.parseEther("0.95");
-      const maxPrice = ethers.utils.parseEther("1.05");
+      const minPrice = parseEther("0.95");
+      const maxPrice = parseEther("1.05");
       const deadline = (await time.latest()) + 3600; // 1 hour
 
       const predicate = await testContract.buildPredicateCondition(minPrice, maxPrice, deadline);
@@ -352,8 +353,8 @@ describe("OneInchHelper", function () {
     });
 
     it("should reject invalid price range", async function () {
-      const minPrice = ethers.utils.parseEther("1.05");
-      const maxPrice = ethers.utils.parseEther("0.95"); // Min > Max
+      const minPrice = parseEther("1.05");
+      const maxPrice = parseEther("0.95"); // Min > Max
       const deadline = (await time.latest()) + 3600;
 
       await expect(
@@ -362,8 +363,8 @@ describe("OneInchHelper", function () {
     });
 
     it("should reject past deadline", async function () {
-      const minPrice = ethers.utils.parseEther("0.95");
-      const maxPrice = ethers.utils.parseEther("1.05");
+      const minPrice = parseEther("0.95");
+      const maxPrice = parseEther("1.05");
       const pastDeadline = (await time.latest()) - 3600; // 1 hour ago
 
       await expect(
@@ -373,7 +374,7 @@ describe("OneInchHelper", function () {
 
     it("should handle zero prices", async function () {
       const minPrice = 0;
-      const maxPrice = ethers.utils.parseEther("1.0");
+      const maxPrice = parseEther("1.0");
       const deadline = (await time.latest()) + 3600;
 
       await expect(
@@ -384,7 +385,7 @@ describe("OneInchHelper", function () {
 
   describe("Swap Result Parsing", function () {
     it("should parse swap result correctly", async function () {
-      const expectedReturnAmount = ethers.utils.parseEther("95");
+      const expectedReturnAmount = parseEther("95");
       const expectedGasUsed = 150000;
       
       // Mock swap result data (would be encoded differently in real implementation)
@@ -418,8 +419,8 @@ describe("OneInchHelper", function () {
 
   describe("Gas Estimation", function () {
     it("should estimate gas for swap", async function () {
-      const fromToken = mockToken1.address;
-      const toToken = mockToken2.address;
+      const fromToken = await mockToken1.getAddress();
+      const toToken = await mockToken2.getAddress();
       const amount = SWAP_AMOUNT;
 
       const estimatedGas = await testContract.estimateGasForSwap(fromToken, toToken, amount);
@@ -429,10 +430,10 @@ describe("OneInchHelper", function () {
     });
 
     it("should return higher gas estimate for complex swaps", async function () {
-      const fromToken = mockToken1.address;
-      const toToken = mockToken2.address;
-      const smallAmount = ethers.utils.parseEther("1");
-      const largeAmount = ethers.utils.parseEther("1000");
+      const fromToken = await mockToken1.getAddress();
+      const toToken = await mockToken2.getAddress();
+      const smallAmount = parseEther("1");
+      const largeAmount = parseEther("1000");
 
       const gasSmall = await testContract.estimateGasForSwap(fromToken, toToken, smallAmount);
       const gasLarge = await testContract.estimateGasForSwap(fromToken, toToken, largeAmount);
@@ -443,28 +444,28 @@ describe("OneInchHelper", function () {
 
     it("should handle same token swap", async function () {
       await expect(
-        testContract.estimateGasForSwap(mockToken1.address, mockToken1.address, SWAP_AMOUNT)
+        testContract.estimateGasForSwap(await mockToken1.getAddress(), await mockToken1.getAddress(), SWAP_AMOUNT)
       ).to.be.revertedWith("Cannot swap same token");
     });
   });
 
   describe("Router Selection", function () {
     it("should get optimal router", async function () {
-      const fromToken = mockToken1.address;
-      const toToken = mockToken2.address;
+      const fromToken = await mockToken1.getAddress();
+      const toToken = await mockToken2.getAddress();
       const amount = SWAP_AMOUNT;
 
       const optimalRouter = await testContract.getOptimalRouter(fromToken, toToken, amount);
 
       expect(ethers.utils.isAddress(optimalRouter)).to.equal(true);
-      expect(optimalRouter).to.not.equal(ethers.constants.AddressZero);
+      expect(optimalRouter).to.not.equal(ZeroAddress);
     });
 
     it("should return different routers for different amounts", async function () {
-      const fromToken = mockToken1.address;
-      const toToken = mockToken2.address;
-      const smallAmount = ethers.utils.parseEther("1");
-      const largeAmount = ethers.utils.parseEther("10000");
+      const fromToken = await mockToken1.getAddress();
+      const toToken = await mockToken2.getAddress();
+      const smallAmount = parseEther("1");
+      const largeAmount = parseEther("10000");
 
       const routerSmall = await testContract.getOptimalRouter(fromToken, toToken, smallAmount);
       const routerLarge = await testContract.getOptimalRouter(fromToken, toToken, largeAmount);
@@ -478,10 +479,10 @@ describe("OneInchHelper", function () {
       // Mock unsupported token
       const MockERC20 = await ethers.getContractFactory("MockERC20");
       const unsupportedToken = await MockERC20.deploy("Unsupported", "UNS", 18);
-      await unsupportedToken.deployed();
+      // ethers v6: .deployed() is not needed
 
       await expect(
-        testContract.getOptimalRouter(unsupportedToken.address, mockToken2.address, SWAP_AMOUNT)
+        testContract.getOptimalRouter(await unsupportedToken.getAddress(), await mockToken2.getAddress(), SWAP_AMOUNT)
       ).to.be.revertedWith("No router available for token pair");
     });
   });
@@ -490,15 +491,15 @@ describe("OneInchHelper", function () {
     it("should build batch swap data", async function () {
       const swaps = [
         {
-          fromToken: mockToken1.address,
-          toToken: mockToken2.address,
+          fromToken: await mockToken1.getAddress(),
+          toToken: await mockToken2.getAddress(),
           amount: SWAP_AMOUNT,
           minReturn: MIN_RETURN,
           routerData: "0x1234"
         },
         {
-          fromToken: mockToken2.address,
-          toToken: mockToken1.address,
+          fromToken: await mockToken2.getAddress(),
+          toToken: await mockToken1.getAddress(),
           amount: SWAP_AMOUNT.div(2),
           minReturn: MIN_RETURN.div(2),
           routerData: "0x5678"
@@ -522,8 +523,8 @@ describe("OneInchHelper", function () {
     it("should validate batch swap parameters", async function () {
       const invalidSwaps = [
         {
-          fromToken: ethers.constants.AddressZero, // Invalid
-          toToken: mockToken2.address,
+          fromToken: ZeroAddress, // Invalid
+          toToken: await mockToken2.getAddress(),
           amount: SWAP_AMOUNT,
           minReturn: MIN_RETURN,
           routerData: "0x1234"
@@ -539,8 +540,8 @@ describe("OneInchHelper", function () {
       const largeSwaps = [];
       for (let i = 0; i < 10; i++) {
         largeSwaps.push({
-          fromToken: mockToken1.address,
-          toToken: mockToken2.address,
+          fromToken: await mockToken1.getAddress(),
+          toToken: await mockToken2.getAddress(),
           amount: SWAP_AMOUNT.div(10),
           minReturn: MIN_RETURN.div(10),
           routerData: `0x${i.toString().padStart(4, '0')}`
@@ -554,7 +555,7 @@ describe("OneInchHelper", function () {
 
   describe("Edge Cases and Security", function () {
     it("should handle overflow protection in calculations", async function () {
-      const maxUint256 = ethers.constants.MaxUint256;
+      const maxUint256 = MaxUint256;
       const feeRate = 1; // 0.01%
 
       await expect(
@@ -565,7 +566,7 @@ describe("OneInchHelper", function () {
     it("should validate input parameters consistently", async function () {
       // Test various edge cases with invalid inputs
       await expect(
-        testContract.calculateOptimalSlippage(0, ethers.utils.parseEther("1"), 500)
+        testContract.calculateOptimalSlippage(0, parseEther("1"), 500)
       ).to.be.revertedWith("Amount must be greater than zero");
 
       await expect(
@@ -575,7 +576,7 @@ describe("OneInchHelper", function () {
 
     it("should handle very small amounts correctly", async function () {
       const verySmallAmount = 1; // 1 wei
-      const marketPrice = ethers.utils.parseEther("1000"); // High price
+      const marketPrice = parseEther("1000"); // High price
       const slippage = 100; // 1%
 
       const minReturn = await testContract.calculateOptimalSlippage(verySmallAmount, marketPrice, slippage);
@@ -603,7 +604,7 @@ describe("OneInchHelper", function () {
         promises.push(
           testContract.calculateOptimalSlippage(
             SWAP_AMOUNT.add(i),
-            ethers.utils.parseEther("1.0"),
+            parseEther("1.0"),
             500
           )
         );

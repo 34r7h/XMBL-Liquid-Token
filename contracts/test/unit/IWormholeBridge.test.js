@@ -1,4 +1,5 @@
 const { expect } = require("chai");
+const { parseEther, keccak256, ZeroAddress, MaxUint256, ZeroHash } = require("ethers");
 const { ethers } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
@@ -12,10 +13,10 @@ describe("IWormholeBridge Interface", function () {
   let mockWBTC;
   let mockWrappedToken;
 
-  const TRANSFER_AMOUNT = ethers.utils.parseEther("1.0");
+  const TRANSFER_AMOUNT = parseEther("1.0");
   const ETHEREUM_CHAIN_ID = 2;
   const BITCOIN_CHAIN_ID = 1;
-  const ARBITER_FEE = ethers.utils.parseEther("0.001");
+  const ARBITER_FEE = parseEther("0.001");
   const NONCE = 12345;
 
   beforeEach(async function () {
@@ -24,22 +25,22 @@ describe("IWormholeBridge Interface", function () {
     // Deploy mock WBTC token
     const MockERC20 = await ethers.getContractFactory("MockERC20");
     mockWBTC = await MockERC20.deploy("Wrapped Bitcoin", "WBTC", 8);
-    await mockWBTC.deployed();
+    // ethers v6: .deployed() is not needed
 
     // Note: Skip tests if IWormholeBridge interface implementation is not available
     try {
       // Deploy mock implementation of IWormholeBridge interface
       const MockIWormholeBridge = await ethers.getContractFactory("MockIWormholeBridge");
       mockWormhole = await MockIWormholeBridge.deploy();
-      await mockWormhole.deployed();
+      // ethers v6: .deployed() is not needed
 
       // Deploy mock wrapped token
       mockWrappedToken = await MockERC20.deploy("Wrapped WBTC", "wWBTC", 8);
-      await mockWrappedToken.deployed();
+      // ethers v6: .deployed() is not needed
 
       // Mint WBTC for testing
-      await mockWBTC.mint(sender.address, ethers.utils.parseEther("10"));
-      await mockWBTC.connect(sender).approve(mockWormhole.address, ethers.utils.parseEther("10"));
+      await mockWBTC.mint(await sender.getAddress(), parseEther("10"));
+      await mockWBTC.connect(sender).approve(await mockWormhole.getAddress(), parseEther("10"));
     } catch (error) {
       console.log("IWormholeBridge interface implementation not available, skipping tests");
       this.skip();
@@ -69,7 +70,7 @@ describe("IWormholeBridge Interface", function () {
 
       await expect(
         mockWormhole.connect(sender).transferTokens(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           TRANSFER_AMOUNT,
           BITCOIN_CHAIN_ID,
           recipientBytes32,
@@ -79,14 +80,14 @@ describe("IWormholeBridge Interface", function () {
         )
       )
         .to.emit(mockWormhole, "LogTokensLocked")
-        .withArgs(mockWBTC.address, sender.address, TRANSFER_AMOUNT, BITCOIN_CHAIN_ID, recipientBytes32);
+        .withArgs(await mockWBTC.getAddress(), await sender.getAddress(), TRANSFER_AMOUNT, BITCOIN_CHAIN_ID, recipientBytes32);
     });
 
     it("should return sequence number", async function () {
       const recipientBytes32 = ethers.utils.hexZeroPad(recipient.address, 32);
 
       const sequenceNumber = await mockWormhole.connect(sender).transferTokens(
-        mockWBTC.address,
+        await mockWBTC.getAddress(),
         TRANSFER_AMOUNT,
         BITCOIN_CHAIN_ID,
         recipientBytes32,
@@ -104,7 +105,7 @@ describe("IWormholeBridge Interface", function () {
 
       await expect(
         mockWormhole.connect(sender).transferTokens(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           0,
           BITCOIN_CHAIN_ID,
           recipientBytes32,
@@ -121,7 +122,7 @@ describe("IWormholeBridge Interface", function () {
 
       await expect(
         mockWormhole.connect(sender).transferTokens(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           TRANSFER_AMOUNT,
           invalidChainId,
           recipientBytes32,
@@ -133,11 +134,11 @@ describe("IWormholeBridge Interface", function () {
     });
 
     it("should reject invalid recipient", async function () {
-      const zeroRecipient = ethers.constants.HashZero;
+      const zeroRecipient = ZeroHash;
 
       await expect(
         mockWormhole.connect(sender).transferTokens(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           TRANSFER_AMOUNT,
           BITCOIN_CHAIN_ID,
           zeroRecipient,
@@ -150,11 +151,11 @@ describe("IWormholeBridge Interface", function () {
 
     it("should require sufficient ETH for fees", async function () {
       const recipientBytes32 = ethers.utils.hexZeroPad(recipient.address, 32);
-      const insufficientFee = ethers.utils.parseEther("0.0001");
+      const insufficientFee = parseEther("0.0001");
 
       await expect(
         mockWormhole.connect(sender).transferTokens(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           TRANSFER_AMOUNT,
           BITCOIN_CHAIN_ID,
           recipientBytes32,
@@ -167,10 +168,10 @@ describe("IWormholeBridge Interface", function () {
 
     it("should lock tokens in contract", async function () {
       const recipientBytes32 = ethers.utils.hexZeroPad(recipient.address, 32);
-      const contractBalanceBefore = await mockWBTC.balanceOf(mockWormhole.address);
+      const contractBalanceBefore = await mockWBTC.balanceOf(await mockWormhole.getAddress());
 
       await mockWormhole.connect(sender).transferTokens(
-        mockWBTC.address,
+        await mockWBTC.getAddress(),
         TRANSFER_AMOUNT,
         BITCOIN_CHAIN_ID,
         recipientBytes32,
@@ -179,7 +180,7 @@ describe("IWormholeBridge Interface", function () {
         { value: ARBITER_FEE }
       );
 
-      const contractBalanceAfter = await mockWBTC.balanceOf(mockWormhole.address);
+      const contractBalanceAfter = await mockWBTC.balanceOf(await mockWormhole.getAddress());
       expect(contractBalanceAfter.sub(contractBalanceBefore)).to.equal(TRANSFER_AMOUNT);
     });
 
@@ -190,7 +191,7 @@ describe("IWormholeBridge Interface", function () {
 
       await expect(
         mockWormhole.connect(sender).transferTokens(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           TRANSFER_AMOUNT,
           solanaChainId,
           recipientBytes32,
@@ -202,7 +203,7 @@ describe("IWormholeBridge Interface", function () {
 
       await expect(
         mockWormhole.connect(sender).transferTokens(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           TRANSFER_AMOUNT,
           polygonChainId,
           recipientBytes32,
@@ -224,11 +225,11 @@ describe("IWormholeBridge Interface", function () {
         [
           1, // payloadID
           TRANSFER_AMOUNT,
-          ethers.utils.hexZeroPad(mockWBTC.address, 32),
+          ethers.utils.hexZeroPad(await mockWBTC.getAddress(), 32),
           ETHEREUM_CHAIN_ID,
           ethers.utils.hexZeroPad(recipient.address, 32),
           BITCOIN_CHAIN_ID,
-          ethers.utils.parseEther("0.001") // fee
+          parseEther("0.001") // fee
         ]
       );
 
@@ -238,7 +239,7 @@ describe("IWormholeBridge Interface", function () {
           1, // version
           await time.latest(), // timestamp
           ETHEREUM_CHAIN_ID, // emitterChain
-          ethers.utils.hexZeroPad(mockWormhole.address, 32), // emitterAddress
+          ethers.utils.hexZeroPad(await mockWormhole.getAddress(), 32), // emitterAddress
           12345, // sequence
           1, // consistencyLevel
           transferPayload
@@ -249,7 +250,7 @@ describe("IWormholeBridge Interface", function () {
     it("should complete transfer with valid VAA", async function () {
       await expect(mockWormhole.completeTransfer(encodedVAA))
         .to.emit(mockWormhole, "TransferRedeemed")
-        .withArgs(mockWBTC.address, recipient.address, TRANSFER_AMOUNT, ETHEREUM_CHAIN_ID);
+        .withArgs(await mockWBTC.getAddress(), recipient.address, TRANSFER_AMOUNT, ETHEREUM_CHAIN_ID);
     });
 
     it("should reject invalid VAA", async function () {
@@ -282,7 +283,7 @@ describe("IWormholeBridge Interface", function () {
           1, // version
           await time.latest(), // timestamp
           ETHEREUM_CHAIN_ID, // emitterChain
-          ethers.utils.hexZeroPad(mockWormhole.address, 32), // emitterAddress
+          ethers.utils.hexZeroPad(await mockWormhole.getAddress(), 32), // emitterAddress
           12345, // sequence
           1, // consistencyLevel
           "0x1234", // invalid payload
@@ -322,11 +323,11 @@ describe("IWormholeBridge Interface", function () {
         [
           1, // payloadID
           TRANSFER_AMOUNT,
-          ethers.utils.hexZeroPad(mockWBTC.address, 32),
+          ethers.utils.hexZeroPad(await mockWBTC.getAddress(), 32),
           ETHEREUM_CHAIN_ID,
           ethers.utils.hexZeroPad(recipient.address, 32),
           BITCOIN_CHAIN_ID,
-          ethers.utils.parseEther("0.001") // fee
+          parseEther("0.001") // fee
         ]
       );
 
@@ -336,7 +337,7 @@ describe("IWormholeBridge Interface", function () {
       expect(transferDetails.amount).to.equal(TRANSFER_AMOUNT);
       expect(transferDetails.tokenChain).to.equal(ETHEREUM_CHAIN_ID);
       expect(transferDetails.toChain).to.equal(BITCOIN_CHAIN_ID);
-      expect(transferDetails.fee).to.equal(ethers.utils.parseEther("0.001"));
+      expect(transferDetails.fee).to.equal(parseEther("0.001"));
     });
 
     it("should reject invalid payload format", async function () {
@@ -352,7 +353,7 @@ describe("IWormholeBridge Interface", function () {
         ["uint8", "bytes32", "uint16", "uint8", "uint32", "string", "string"],
         [
           2, // attestation payloadID
-          ethers.utils.hexZeroPad(mockWBTC.address, 32),
+          ethers.utils.hexZeroPad(await mockWBTC.getAddress(), 32),
           ETHEREUM_CHAIN_ID,
           8, // decimals
           0, // symbol length
@@ -382,7 +383,7 @@ describe("IWormholeBridge Interface", function () {
   describe("Token Attestation", function () {
     it("should attest token successfully", async function () {
       const sequenceNumber = await mockWormhole.connect(owner).attestToken(
-        mockWBTC.address,
+        await mockWBTC.getAddress(),
         NONCE,
         { value: ARBITER_FEE }
       );
@@ -394,19 +395,19 @@ describe("IWormholeBridge Interface", function () {
     it("should emit TokenAttestation event", async function () {
       await expect(
         mockWormhole.connect(owner).attestToken(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           NONCE,
           { value: ARBITER_FEE }
         )
       )
         .to.emit(mockWormhole, "TokenAttestation")
-        .withArgs(mockWBTC.address, ETHEREUM_CHAIN_ID, ethers.utils.hexZeroPad(mockWBTC.address, 32));
+        .withArgs(await mockWBTC.getAddress(), ETHEREUM_CHAIN_ID, ethers.utils.hexZeroPad(await mockWBTC.getAddress(), 32));
     });
 
     it("should reject invalid token address", async function () {
       await expect(
         mockWormhole.connect(owner).attestToken(
-          ethers.constants.AddressZero,
+          ZeroAddress,
           NONCE,
           { value: ARBITER_FEE }
         )
@@ -416,7 +417,7 @@ describe("IWormholeBridge Interface", function () {
     it("should require attestation fee", async function () {
       await expect(
         mockWormhole.connect(owner).attestToken(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           NONCE,
           { value: 0 }
         )
@@ -425,7 +426,7 @@ describe("IWormholeBridge Interface", function () {
 
     it("should handle duplicate attestations", async function () {
       await mockWormhole.connect(owner).attestToken(
-        mockWBTC.address,
+        await mockWBTC.getAddress(),
         NONCE,
         { value: ARBITER_FEE }
       );
@@ -433,7 +434,7 @@ describe("IWormholeBridge Interface", function () {
       // Second attestation should either succeed or be ignored
       await expect(
         mockWormhole.connect(owner).attestToken(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           NONCE + 1,
           { value: ARBITER_FEE }
         )
@@ -449,7 +450,7 @@ describe("IWormholeBridge Interface", function () {
         ["uint8", "bytes32", "uint16", "uint8", "uint32", "string", "string"],
         [
           2, // attestation payloadID
-          ethers.utils.hexZeroPad(mockWBTC.address, 32),
+          ethers.utils.hexZeroPad(await mockWBTC.getAddress(), 32),
           ETHEREUM_CHAIN_ID,
           8, // decimals
           4, // symbol length
@@ -464,7 +465,7 @@ describe("IWormholeBridge Interface", function () {
           1, // version
           await time.latest(), // timestamp
           ETHEREUM_CHAIN_ID, // emitterChain
-          ethers.utils.hexZeroPad(mockWormhole.address, 32), // emitterAddress
+          ethers.utils.hexZeroPad(await mockWormhole.getAddress(), 32), // emitterAddress
           12345, // sequence
           1, // consistencyLevel
           attestationPayload
@@ -476,7 +477,7 @@ describe("IWormholeBridge Interface", function () {
       const wrappedTokenAddress = await mockWormhole.createWrapped(attestationVAA);
 
       expect(ethers.utils.isAddress(wrappedTokenAddress)).to.equal(true);
-      expect(wrappedTokenAddress).to.not.equal(ethers.constants.AddressZero);
+      expect(wrappedTokenAddress).to.not.equal(ZeroAddress);
     });
 
     it("should update wrapped token metadata", async function () {
@@ -492,21 +493,21 @@ describe("IWormholeBridge Interface", function () {
 
       const wrappedTokenAddress = await mockWormhole.wrapperForTokenOnChain(
         ETHEREUM_CHAIN_ID,
-        ethers.utils.hexZeroPad(mockWBTC.address, 32)
+        ethers.utils.hexZeroPad(await mockWBTC.getAddress(), 32)
       );
 
       expect(ethers.utils.isAddress(wrappedTokenAddress)).to.equal(true);
     });
 
     it("should return zero address for non-existent wrapper", async function () {
-      const nonExistentToken = ethers.utils.hexZeroPad(mockWrappedToken.address, 32);
+      const nonExistentToken = ethers.utils.hexZeroPad(await mockWrappedToken.getAddress(), 32);
 
       const wrappedTokenAddress = await mockWormhole.wrapperForTokenOnChain(
         ETHEREUM_CHAIN_ID,
         nonExistentToken
       );
 
-      expect(wrappedTokenAddress).to.equal(ethers.constants.AddressZero);
+      expect(wrappedTokenAddress).to.equal(ZeroAddress);
     });
 
     it("should reject invalid attestation VAA", async function () {
@@ -523,19 +524,19 @@ describe("IWormholeBridge Interface", function () {
       // Different chain should create different wrapper
       const differentChainWrapper = await mockWormhole.wrapperForTokenOnChain(
         BITCOIN_CHAIN_ID,
-        ethers.utils.hexZeroPad(mockWBTC.address, 32)
+        ethers.utils.hexZeroPad(await mockWBTC.getAddress(), 32)
       );
 
-      expect(differentChainWrapper).to.equal(ethers.constants.AddressZero);
+      expect(differentChainWrapper).to.equal(ZeroAddress);
     });
   });
 
   describe("Transfer Status Tracking", function () {
     it("should track transfer completion status", async function () {
-      const transferHash = ethers.utils.keccak256(
+      const transferHash = keccak256(
         ethers.utils.defaultAbiCoder.encode(
           ["address", "uint256", "uint16", "bytes32"],
-          [mockWBTC.address, TRANSFER_AMOUNT, BITCOIN_CHAIN_ID, ethers.utils.hexZeroPad(recipient.address, 32)]
+          [await mockWBTC.getAddress(), TRANSFER_AMOUNT, BITCOIN_CHAIN_ID, ethers.utils.hexZeroPad(recipient.address, 32)]
         )
       );
 
@@ -547,11 +548,11 @@ describe("IWormholeBridge Interface", function () {
         [
           1, // payloadID
           TRANSFER_AMOUNT,
-          ethers.utils.hexZeroPad(mockWBTC.address, 32),
+          ethers.utils.hexZeroPad(await mockWBTC.getAddress(), 32),
           ETHEREUM_CHAIN_ID,
           ethers.utils.hexZeroPad(recipient.address, 32),
           BITCOIN_CHAIN_ID,
-          ethers.utils.parseEther("0.001") // fee
+          parseEther("0.001") // fee
         ]
       );
 
@@ -561,7 +562,7 @@ describe("IWormholeBridge Interface", function () {
           1, // version
           await time.latest(), // timestamp
           ETHEREUM_CHAIN_ID, // emitterChain
-          ethers.utils.hexZeroPad(mockWormhole.address, 32), // emitterAddress
+          ethers.utils.hexZeroPad(await mockWormhole.getAddress(), 32), // emitterAddress
           12345, // sequence
           1, // consistencyLevel
           transferPayload
@@ -574,7 +575,7 @@ describe("IWormholeBridge Interface", function () {
     });
 
     it("should handle non-existent transfer hash", async function () {
-      const randomHash = ethers.utils.keccak256("0x1234");
+      const randomHash = keccak256("0x1234");
 
       expect(await mockWormhole.isTransferCompleted(randomHash)).to.equal(false);
     });
@@ -585,11 +586,11 @@ describe("IWormholeBridge Interface", function () {
         [
           1, // payloadID
           TRANSFER_AMOUNT,
-          ethers.utils.hexZeroPad(mockWBTC.address, 32),
+          ethers.utils.hexZeroPad(await mockWBTC.getAddress(), 32),
           ETHEREUM_CHAIN_ID,
           ethers.utils.hexZeroPad(recipient.address, 32),
           BITCOIN_CHAIN_ID,
-          ethers.utils.parseEther("0.001") // fee
+          parseEther("0.001") // fee
         ]
       );
 
@@ -599,7 +600,7 @@ describe("IWormholeBridge Interface", function () {
           1, // version
           await time.latest(), // timestamp
           ETHEREUM_CHAIN_ID, // emitterChain
-          ethers.utils.hexZeroPad(mockWormhole.address, 32), // emitterAddress
+          ethers.utils.hexZeroPad(await mockWormhole.getAddress(), 32), // emitterAddress
           12345, // sequence
           1, // consistencyLevel
           transferPayload
@@ -621,7 +622,7 @@ describe("IWormholeBridge Interface", function () {
 
       await expect(
         mockWormhole.connect(sender).transferTokens(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           TRANSFER_AMOUNT,
           BITCOIN_CHAIN_ID,
           bitcoinAddressBytes32,
@@ -638,7 +639,7 @@ describe("IWormholeBridge Interface", function () {
 
       await expect(
         mockWormhole.connect(sender).transferTokens(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           TRANSFER_AMOUNT,
           BITCOIN_CHAIN_ID,
           invalidAddressBytes32,
@@ -651,13 +652,13 @@ describe("IWormholeBridge Interface", function () {
 
     it("should handle Bitcoin network confirmation requirements", async function () {
       // Test different confirmation requirements for different amounts
-      const smallAmount = ethers.utils.parseEther("0.1");
-      const largeAmount = ethers.utils.parseEther("10");
+      const smallAmount = parseEther("0.1");
+      const largeAmount = parseEther("10");
       const bitcoinAddressBytes32 = ethers.utils.formatBytes32String("bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh");
 
       await expect(
         mockWormhole.connect(sender).transferTokens(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           smallAmount,
           BITCOIN_CHAIN_ID,
           bitcoinAddressBytes32,
@@ -669,7 +670,7 @@ describe("IWormholeBridge Interface", function () {
 
       await expect(
         mockWormhole.connect(sender).transferTokens(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           largeAmount,
           BITCOIN_CHAIN_ID,
           bitcoinAddressBytes32,
@@ -702,18 +703,18 @@ describe("IWormholeBridge Interface", function () {
         [
           1, // payloadID
           TRANSFER_AMOUNT,
-          ethers.utils.hexZeroPad(mockWBTC.address, 32),
+          ethers.utils.hexZeroPad(await mockWBTC.getAddress(), 32),
           ETHEREUM_CHAIN_ID,
           ethers.utils.hexZeroPad(recipient.address, 32),
           BITCOIN_CHAIN_ID,
-          ethers.utils.parseEther("0.001") // fee
+          parseEther("0.001") // fee
         ]
       );
 
       // Mock guardian signatures
       const guardianSignatures = [];
       for (let i = 0; i < 13; i++) { // Typical guardian count
-        const signature = await guardian.signMessage(ethers.utils.arrayify(ethers.utils.keccak256(transferPayload)));
+        const signature = await guardian.signMessage(ethers.utils.arrayify(keccak256(transferPayload)));
         guardianSignatures.push(signature);
       }
 
@@ -723,7 +724,7 @@ describe("IWormholeBridge Interface", function () {
           1, // version
           await time.latest(), // timestamp
           ETHEREUM_CHAIN_ID, // emitterChain
-          ethers.utils.hexZeroPad(mockWormhole.address, 32), // emitterAddress
+          ethers.utils.hexZeroPad(await mockWormhole.getAddress(), 32), // emitterAddress
           12345, // sequence
           1, // consistencyLevel
           transferPayload,
@@ -740,18 +741,18 @@ describe("IWormholeBridge Interface", function () {
         [
           1, // payloadID
           TRANSFER_AMOUNT,
-          ethers.utils.hexZeroPad(mockWBTC.address, 32),
+          ethers.utils.hexZeroPad(await mockWBTC.getAddress(), 32),
           ETHEREUM_CHAIN_ID,
           ethers.utils.hexZeroPad(recipient.address, 32),
           BITCOIN_CHAIN_ID,
-          ethers.utils.parseEther("0.001") // fee
+          parseEther("0.001") // fee
         ]
       );
 
       // Insufficient guardian signatures
       const insufficientSignatures = [];
       for (let i = 0; i < 5; i++) { // Less than required threshold
-        const signature = await guardian.signMessage(ethers.utils.arrayify(ethers.utils.keccak256(transferPayload)));
+        const signature = await guardian.signMessage(ethers.utils.arrayify(keccak256(transferPayload)));
         insufficientSignatures.push(signature);
       }
 
@@ -761,7 +762,7 @@ describe("IWormholeBridge Interface", function () {
           1, // version
           await time.latest(), // timestamp
           ETHEREUM_CHAIN_ID, // emitterChain
-          ethers.utils.hexZeroPad(mockWormhole.address, 32), // emitterAddress
+          ethers.utils.hexZeroPad(await mockWormhole.getAddress(), 32), // emitterAddress
           12345, // sequence
           1, // consistencyLevel
           transferPayload,
@@ -776,7 +777,7 @@ describe("IWormholeBridge Interface", function () {
 
     it("should handle guardian set updates", async function () {
       // Test guardian set rotation/updates
-      const newGuardianSet = [guardian.address, sender.address, recipient.address];
+      const newGuardianSet = [await guardian.getAddress(), await sender.getAddress(), recipient.address];
       
       // This would be a governance action to update guardians
       try {
@@ -791,7 +792,7 @@ describe("IWormholeBridge Interface", function () {
 
   describe("Fee Management", function () {
     it("should calculate correct bridge fees", async function () {
-      const baseFee = ethers.utils.parseEther("0.001");
+      const baseFee = parseEther("0.001");
       const recipientBytes32 = ethers.utils.hexZeroPad(recipient.address, 32);
 
       // Different chains might have different fees
@@ -800,7 +801,7 @@ describe("IWormholeBridge Interface", function () {
 
       await expect(
         mockWormhole.connect(sender).transferTokens(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           TRANSFER_AMOUNT,
           ETHEREUM_CHAIN_ID,
           recipientBytes32,
@@ -812,7 +813,7 @@ describe("IWormholeBridge Interface", function () {
 
       await expect(
         mockWormhole.connect(sender).transferTokens(
-          mockWBTC.address,
+          await mockWBTC.getAddress(),
           TRANSFER_AMOUNT,
           BITCOIN_CHAIN_ID,
           recipientBytes32,
@@ -825,10 +826,10 @@ describe("IWormholeBridge Interface", function () {
 
     it("should distribute fees correctly", async function () {
       const recipientBytes32 = ethers.utils.hexZeroPad(recipient.address, 32);
-      const bridgeBalanceBefore = await ethers.provider.getBalance(mockWormhole.address);
+      const bridgeBalanceBefore = await ethers.provider.getBalance(await mockWormhole.getAddress());
 
       await mockWormhole.connect(sender).transferTokens(
-        mockWBTC.address,
+        await mockWBTC.getAddress(),
         TRANSFER_AMOUNT,
         BITCOIN_CHAIN_ID,
         recipientBytes32,
@@ -837,7 +838,7 @@ describe("IWormholeBridge Interface", function () {
         { value: ARBITER_FEE }
       );
 
-      const bridgeBalanceAfter = await ethers.provider.getBalance(mockWormhole.address);
+      const bridgeBalanceAfter = await ethers.provider.getBalance(await mockWormhole.getAddress());
       expect(bridgeBalanceAfter.sub(bridgeBalanceBefore)).to.equal(ARBITER_FEE);
     });
 
@@ -848,7 +849,7 @@ describe("IWormholeBridge Interface", function () {
       // Create a transfer that will fail
       try {
         await mockWormhole.connect(sender).transferTokens(
-          ethers.constants.AddressZero, // Invalid token
+          ZeroAddress, // Invalid token
           TRANSFER_AMOUNT,
           BITCOIN_CHAIN_ID,
           recipientBytes32,
@@ -859,7 +860,7 @@ describe("IWormholeBridge Interface", function () {
       } catch (error) {
         // Fee should be refunded on failure
         const senderBalanceAfter = await sender.getBalance();
-        expect(senderBalanceAfter).to.be.gt(senderBalanceBefore.sub(ethers.utils.parseEther("0.01"))); // Account for gas
+        expect(senderBalanceAfter).to.be.gt(senderBalanceBefore.sub(parseEther("0.01"))); // Account for gas
       }
     });
   });
@@ -873,7 +874,7 @@ describe("IWormholeBridge Interface", function () {
 
         await expect(
           mockWormhole.connect(sender).transferTokens(
-            mockWBTC.address,
+            await mockWBTC.getAddress(),
             TRANSFER_AMOUNT,
             BITCOIN_CHAIN_ID,
             recipientBytes32,
@@ -894,11 +895,11 @@ describe("IWormholeBridge Interface", function () {
         [
           1, // payloadID
           TRANSFER_AMOUNT,
-          ethers.utils.hexZeroPad(mockWBTC.address, 32),
+          ethers.utils.hexZeroPad(await mockWBTC.getAddress(), 32),
           ETHEREUM_CHAIN_ID,
           ethers.utils.hexZeroPad(recipient.address, 32),
           BITCOIN_CHAIN_ID,
-          ethers.utils.parseEther("0.001") // fee
+          parseEther("0.001") // fee
         ]
       );
 
@@ -908,7 +909,7 @@ describe("IWormholeBridge Interface", function () {
           1, // version
           await time.latest(), // timestamp
           ETHEREUM_CHAIN_ID, // emitterChain
-          ethers.utils.hexZeroPad(mockWormhole.address, 32), // emitterAddress
+          ethers.utils.hexZeroPad(await mockWormhole.getAddress(), 32), // emitterAddress
           12345, // sequence
           1, // consistencyLevel
           transferPayload
@@ -930,11 +931,11 @@ describe("IWormholeBridge Interface", function () {
         [
           1, // payloadID
           TRANSFER_AMOUNT,
-          ethers.utils.hexZeroPad(mockWBTC.address, 32),
+          ethers.utils.hexZeroPad(await mockWBTC.getAddress(), 32),
           ETHEREUM_CHAIN_ID,
           ethers.utils.hexZeroPad(recipient.address, 32),
           BITCOIN_CHAIN_ID,
-          ethers.utils.parseEther("0.001") // fee
+          parseEther("0.001") // fee
         ]
       );
 
@@ -944,7 +945,7 @@ describe("IWormholeBridge Interface", function () {
           1, // version
           oldTimestamp, // expired timestamp
           ETHEREUM_CHAIN_ID, // emitterChain
-          ethers.utils.hexZeroPad(mockWormhole.address, 32), // emitterAddress
+          ethers.utils.hexZeroPad(await mockWormhole.getAddress(), 32), // emitterAddress
           12345, // sequence
           1, // consistencyLevel
           transferPayload
@@ -959,7 +960,7 @@ describe("IWormholeBridge Interface", function () {
     it("should handle governance upgrades", async function () {
       // Test governance-controlled contract upgrades
       try {
-        const newImplementation = mockWormhole.address;
+        const newImplementation = await mockWormhole.getAddress();
         await mockWormhole.upgrade(newImplementation);
         expect(true).to.equal(true); // Test passed if no revert
       } catch (error) {

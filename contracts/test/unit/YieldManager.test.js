@@ -1,4 +1,5 @@
 const { expect } = require("chai");
+const { parseEther, keccak256, ZeroAddress, MaxUint256, ZeroHash } = require("ethers");
 const { ethers } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
@@ -13,9 +14,9 @@ describe("YieldManager", function () {
   let mockAave;
   let mockProtocol3;
 
-  const INITIAL_WBTC_SUPPLY = ethers.utils.parseEther("100");
-  const DEPLOY_AMOUNT = ethers.utils.parseEther("10");
-  const YIELD_AMOUNT = ethers.utils.parseEther("0.5");
+  const INITIAL_WBTC_SUPPLY = parseEther("100");
+  const DEPLOY_AMOUNT = parseEther("10");
+  const YIELD_AMOUNT = parseEther("0.5");
 
   beforeEach(async function () {
     [owner, vault, user1, user2] = await ethers.getSigners();
@@ -23,7 +24,6 @@ describe("YieldManager", function () {
     // Deploy mock WBTC token
     const MockERC20 = await ethers.getContractFactory("MockERC20");
     mockWBTC = await MockERC20.deploy("Wrapped Bitcoin", "WBTC", 18);
-    await mockWBTC.deployed();
 
     // Deploy mock yield protocols
     const MockYieldProtocol = await ethers.getContractFactory("MockYieldProtocol");
@@ -31,22 +31,18 @@ describe("YieldManager", function () {
     mockAave = await MockYieldProtocol.deploy("Aave", "4.8"); // 4.8% APY
     mockProtocol3 = await MockYieldProtocol.deploy("Protocol3", "6.2"); // 6.2% APY
 
-    await mockCompound.deployed();
-    await mockAave.deployed();
-    await mockProtocol3.deployed();
 
     // Note: Skip tests if YieldManager contract is not implemented
     try {
       const YieldManager = await ethers.getContractFactory("YieldManager");
-      yieldManager = await YieldManager.deploy(mockWBTC.address);
-      await yieldManager.deployed();
+      yieldManager = await YieldManager.deploy(await mockWBTC.getAddress());
 
       // Set vault address
-      await yieldManager.setVaultContract(vault.address);
+      await yieldManager.setVaultContract(await vault.getAddress());
 
       // Mint WBTC to vault for testing
-      await mockWBTC.mint(vault.address, INITIAL_WBTC_SUPPLY);
-      await mockWBTC.connect(vault).approve(yieldManager.address, INITIAL_WBTC_SUPPLY);
+      await mockWBTC.mint(await vault.getAddress(), INITIAL_WBTC_SUPPLY);
+      await mockWBTC.connect(vault).approve(await yieldManager.getAddress(), INITIAL_WBTC_SUPPLY);
     } catch (error) {
       console.log("YieldManager contract not implemented, skipping tests");
       this.skip();
@@ -56,7 +52,7 @@ describe("YieldManager", function () {
   describe("Contract Deployment", function () {
     it("should deploy with correct initial values", async function () {
       expect(await yieldManager.owner()).to.equal(owner.address);
-      expect(await yieldManager.vaultContract()).to.equal(vault.address);
+      expect(await yieldManager.vaultContract()).to.equal(await vault.getAddress());
       expect(await yieldManager.totalDeployed()).to.equal(0);
       expect(await yieldManager.totalYieldHarvested()).to.equal(0);
       expect(await yieldManager.rebalanceThreshold()).to.be.gt(0);
@@ -68,58 +64,58 @@ describe("YieldManager", function () {
     });
 
     it("should set WBTC token address correctly", async function () {
-      expect(await yieldManager.wbtcToken()).to.equal(mockWBTC.address);
+      expect(await yieldManager.wbtcToken()).to.equal(await mockWBTC.getAddress());
     });
 
     it("should initialize with zero balances", async function () {
-      expect(await yieldManager.protocolBalances(mockCompound.address)).to.equal(0);
-      expect(await yieldManager.accruedYield(mockCompound.address)).to.equal(0);
+      expect(await yieldManager.protocolBalances(await mockCompound.getAddress())).to.equal(0);
+      expect(await yieldManager.accruedYield(await mockCompound.getAddress())).to.equal(0);
     });
   });
 
   describe("Protocol Management", function () {
     it("should enable yield protocol", async function () {
-      await expect(yieldManager.setYieldProtocol(mockCompound.address, true))
+      await expect(yieldManager.setYieldProtocol(await mockCompound.getAddress(), true))
         .to.emit(yieldManager, "ProtocolStatusChanged")
-        .withArgs(mockCompound.address, true);
+        .withArgs(await mockCompound.getAddress(), true);
 
-      expect(await yieldManager.enabledProtocols(mockCompound.address)).to.equal(true);
+      expect(await yieldManager.enabledProtocols(await mockCompound.getAddress())).to.equal(true);
     });
 
     it("should disable yield protocol", async function () {
-      await yieldManager.setYieldProtocol(mockCompound.address, true);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
       
-      await expect(yieldManager.setYieldProtocol(mockCompound.address, false))
+      await expect(yieldManager.setYieldProtocol(await mockCompound.getAddress(), false))
         .to.emit(yieldManager, "ProtocolStatusChanged")
-        .withArgs(mockCompound.address, false);
+        .withArgs(await mockCompound.getAddress(), false);
 
-      expect(await yieldManager.enabledProtocols(mockCompound.address)).to.equal(false);
+      expect(await yieldManager.enabledProtocols(await mockCompound.getAddress())).to.equal(false);
     });
 
     it("should reject protocol management by non-owner", async function () {
       await expect(
-        yieldManager.connect(user1).setYieldProtocol(mockCompound.address, true)
+        yieldManager.connect(user1).setYieldProtocol(await mockCompound.getAddress(), true)
       ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
     it("should add protocol to active list when enabled", async function () {
-      await yieldManager.setYieldProtocol(mockCompound.address, true);
-      await yieldManager.setYieldProtocol(mockAave.address, true);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
+      await yieldManager.setYieldProtocol(await mockAave.getAddress(), true);
 
       const activeProtocols = await yieldManager.getActiveProtocols();
-      expect(activeProtocols).to.include(mockCompound.address);
-      expect(activeProtocols).to.include(mockAave.address);
+      expect(activeProtocols).to.include(await mockCompound.getAddress());
+      expect(activeProtocols).to.include(await mockAave.getAddress());
       expect(activeProtocols.length).to.equal(2);
     });
 
     it("should remove protocol from active list when disabled", async function () {
-      await yieldManager.setYieldProtocol(mockCompound.address, true);
-      await yieldManager.setYieldProtocol(mockAave.address, true);
-      await yieldManager.setYieldProtocol(mockCompound.address, false);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
+      await yieldManager.setYieldProtocol(await mockAave.getAddress(), true);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), false);
 
       const activeProtocols = await yieldManager.getActiveProtocols();
-      expect(activeProtocols).to.not.include(mockCompound.address);
-      expect(activeProtocols).to.include(mockAave.address);
+      expect(activeProtocols).to.not.include(await mockCompound.getAddress());
+      expect(activeProtocols).to.include(await mockAave.getAddress());
       expect(activeProtocols.length).to.equal(1);
     });
 
@@ -130,9 +126,9 @@ describe("YieldManager", function () {
       for (let i = 0; i < maxProtocols; i++) {
         const MockYieldProtocol = await ethers.getContractFactory("MockYieldProtocol");
         const protocol = await MockYieldProtocol.deploy(`Protocol${i}`, "5.0");
-        await protocol.deployed();
+        // ethers v6: .deployed() is not needed
         
-        await yieldManager.setYieldProtocol(protocol.address, true);
+        await yieldManager.setYieldProtocol(await protocol.getAddress(), true);
       }
 
       const activeProtocols = await yieldManager.getActiveProtocols();
@@ -142,72 +138,72 @@ describe("YieldManager", function () {
 
   describe("Fund Deployment", function () {
     beforeEach(async function () {
-      await yieldManager.setYieldProtocol(mockCompound.address, true);
-      await yieldManager.setYieldProtocol(mockAave.address, true);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
+      await yieldManager.setYieldProtocol(await mockAave.getAddress(), true);
     });
 
     it("should deploy funds to yield protocol", async function () {
       await expect(
-        yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT)
+        yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT)
       )
         .to.emit(yieldManager, "FundsDeployed")
-        .withArgs(mockCompound.address, DEPLOY_AMOUNT, anyValue);
+        .withArgs(await mockCompound.getAddress(), DEPLOY_AMOUNT, anyValue);
 
-      expect(await yieldManager.protocolBalances(mockCompound.address)).to.equal(DEPLOY_AMOUNT);
+      expect(await yieldManager.protocolBalances(await mockCompound.getAddress())).to.equal(DEPLOY_AMOUNT);
       expect(await yieldManager.totalDeployed()).to.equal(DEPLOY_AMOUNT);
     });
 
     it("should reject deployment to disabled protocol", async function () {
       await expect(
-        yieldManager.connect(vault).deployFunds(mockProtocol3.address, DEPLOY_AMOUNT)
+        yieldManager.connect(vault).deployFunds(await mockProtocol3.getAddress(), DEPLOY_AMOUNT)
       ).to.be.revertedWith("Protocol not enabled");
     });
 
     it("should reject deployment by non-vault", async function () {
       await expect(
-        yieldManager.connect(user1).deployFunds(mockCompound.address, DEPLOY_AMOUNT)
+        yieldManager.connect(user1).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT)
       ).to.be.revertedWith("Only vault can deploy funds");
     });
 
     it("should reject zero amount deployment", async function () {
       await expect(
-        yieldManager.connect(vault).deployFunds(mockCompound.address, 0)
+        yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), 0)
       ).to.be.revertedWith("Amount must be greater than zero");
     });
 
     it("should handle multiple deployments", async function () {
-      await yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT);
-      await yieldManager.connect(vault).deployFunds(mockAave.address, DEPLOY_AMOUNT.mul(2));
+      await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
+      await yieldManager.connect(vault).deployFunds(await mockAave.getAddress(), DEPLOY_AMOUNT.mul(2));
 
-      expect(await yieldManager.protocolBalances(mockCompound.address)).to.equal(DEPLOY_AMOUNT);
-      expect(await yieldManager.protocolBalances(mockAave.address)).to.equal(DEPLOY_AMOUNT.mul(2));
+      expect(await yieldManager.protocolBalances(await mockCompound.getAddress())).to.equal(DEPLOY_AMOUNT);
+      expect(await yieldManager.protocolBalances(await mockAave.getAddress())).to.equal(DEPLOY_AMOUNT.mul(2));
       expect(await yieldManager.totalDeployed()).to.equal(DEPLOY_AMOUNT.mul(3));
     });
 
     it("should update protocol balance correctly", async function () {
-      await yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT);
-      await yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT);
+      await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
+      await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
 
-      expect(await yieldManager.protocolBalances(mockCompound.address)).to.equal(DEPLOY_AMOUNT.mul(2));
+      expect(await yieldManager.protocolBalances(await mockCompound.getAddress())).to.equal(DEPLOY_AMOUNT.mul(2));
     });
 
     it("should transfer WBTC to protocol", async function () {
-      const initialBalance = await mockWBTC.balanceOf(mockCompound.address);
+      const initialBalance = await mockWBTC.balanceOf(await mockCompound.getAddress());
 
-      await yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT);
+      await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
 
-      const finalBalance = await mockWBTC.balanceOf(mockCompound.address);
+      const finalBalance = await mockWBTC.balanceOf(await mockCompound.getAddress());
       expect(finalBalance.sub(initialBalance)).to.equal(DEPLOY_AMOUNT);
     });
   });
 
   describe("Yield Harvesting", function () {
     beforeEach(async function () {
-      await yieldManager.setYieldProtocol(mockCompound.address, true);
-      await yieldManager.setYieldProtocol(mockAave.address, true);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
+      await yieldManager.setYieldProtocol(await mockAave.getAddress(), true);
       
-      await yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT);
-      await yieldManager.connect(vault).deployFunds(mockAave.address, DEPLOY_AMOUNT);
+      await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
+      await yieldManager.connect(vault).deployFunds(await mockAave.getAddress(), DEPLOY_AMOUNT);
 
       // Simulate yield accumulation
       await mockCompound.addYield(YIELD_AMOUNT);
@@ -227,8 +223,8 @@ describe("YieldManager", function () {
     it("should update accrued yield correctly", async function () {
       await yieldManager.harvestYield();
 
-      expect(await yieldManager.accruedYield(mockCompound.address)).to.equal(YIELD_AMOUNT);
-      expect(await yieldManager.accruedYield(mockAave.address)).to.equal(YIELD_AMOUNT.div(2));
+      expect(await yieldManager.accruedYield(await mockCompound.getAddress())).to.equal(YIELD_AMOUNT);
+      expect(await yieldManager.accruedYield(await mockAave.getAddress())).to.equal(YIELD_AMOUNT.div(2));
     });
 
     it("should update total yield harvested", async function () {
@@ -274,68 +270,68 @@ describe("YieldManager", function () {
 
   describe("Fund Withdrawal", function () {
     beforeEach(async function () {
-      await yieldManager.setYieldProtocol(mockCompound.address, true);
-      await yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
+      await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
     });
 
     it("should withdraw funds from protocol", async function () {
       const withdrawAmount = DEPLOY_AMOUNT.div(2);
 
       await expect(
-        yieldManager.connect(vault).withdrawFunds(mockCompound.address, withdrawAmount)
+        yieldManager.connect(vault).withdrawFunds(await mockCompound.getAddress(), withdrawAmount)
       )
         .to.emit(yieldManager, "FundsWithdrawn")
-        .withArgs(mockCompound.address, withdrawAmount, anyValue);
+        .withArgs(await mockCompound.getAddress(), withdrawAmount, anyValue);
 
-      expect(await yieldManager.protocolBalances(mockCompound.address)).to.equal(withdrawAmount);
+      expect(await yieldManager.protocolBalances(await mockCompound.getAddress())).to.equal(withdrawAmount);
       expect(await yieldManager.totalDeployed()).to.equal(withdrawAmount);
     });
 
     it("should reject withdrawal by non-vault", async function () {
       await expect(
-        yieldManager.connect(user1).withdrawFunds(mockCompound.address, DEPLOY_AMOUNT.div(2))
+        yieldManager.connect(user1).withdrawFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT.div(2))
       ).to.be.revertedWith("Only vault can withdraw funds");
     });
 
     it("should reject withdrawal of more than deployed", async function () {
       await expect(
-        yieldManager.connect(vault).withdrawFunds(mockCompound.address, DEPLOY_AMOUNT.mul(2))
+        yieldManager.connect(vault).withdrawFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT.mul(2))
       ).to.be.revertedWith("Insufficient balance");
     });
 
     it("should reject zero amount withdrawal", async function () {
       await expect(
-        yieldManager.connect(vault).withdrawFunds(mockCompound.address, 0)
+        yieldManager.connect(vault).withdrawFunds(await mockCompound.getAddress(), 0)
       ).to.be.revertedWith("Amount must be greater than zero");
     });
 
     it("should transfer WBTC back to vault", async function () {
-      const vaultBalanceBefore = await mockWBTC.balanceOf(vault.address);
+      const vaultBalanceBefore = await mockWBTC.balanceOf(await vault.getAddress());
       const withdrawAmount = DEPLOY_AMOUNT.div(2);
 
-      await yieldManager.connect(vault).withdrawFunds(mockCompound.address, withdrawAmount);
+      await yieldManager.connect(vault).withdrawFunds(await mockCompound.getAddress(), withdrawAmount);
 
-      const vaultBalanceAfter = await mockWBTC.balanceOf(vault.address);
+      const vaultBalanceAfter = await mockWBTC.balanceOf(await vault.getAddress());
       expect(vaultBalanceAfter.sub(vaultBalanceBefore)).to.equal(withdrawAmount);
     });
 
     it("should handle complete withdrawal", async function () {
-      await yieldManager.connect(vault).withdrawFunds(mockCompound.address, DEPLOY_AMOUNT);
+      await yieldManager.connect(vault).withdrawFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
 
-      expect(await yieldManager.protocolBalances(mockCompound.address)).to.equal(0);
+      expect(await yieldManager.protocolBalances(await mockCompound.getAddress())).to.equal(0);
       expect(await yieldManager.totalDeployed()).to.equal(0);
     });
   });
 
   describe("Position Rebalancing", function () {
     beforeEach(async function () {
-      await yieldManager.setYieldProtocol(mockCompound.address, true);
-      await yieldManager.setYieldProtocol(mockAave.address, true);
-      await yieldManager.setYieldProtocol(mockProtocol3.address, true);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
+      await yieldManager.setYieldProtocol(await mockAave.getAddress(), true);
+      await yieldManager.setYieldProtocol(await mockProtocol3.getAddress(), true);
 
       // Deploy funds to create imbalance
-      await yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT.mul(3));
-      await yieldManager.connect(vault).deployFunds(mockAave.address, DEPLOY_AMOUNT);
+      await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT.mul(3));
+      await yieldManager.connect(vault).deployFunds(await mockAave.getAddress(), DEPLOY_AMOUNT);
     });
 
     it("should rebalance positions across protocols", async function () {
@@ -343,9 +339,9 @@ describe("YieldManager", function () {
         .to.emit(yieldManager, "PositionsRebalanced");
 
       // Check that funds are more evenly distributed
-      const compoundBalance = await yieldManager.protocolBalances(mockCompound.address);
-      const aaveBalance = await yieldManager.protocolBalances(mockAave.address);
-      const protocol3Balance = await yieldManager.protocolBalances(mockProtocol3.address);
+      const compoundBalance = await yieldManager.protocolBalances(await mockCompound.getAddress());
+      const aaveBalance = await yieldManager.protocolBalances(await mockAave.getAddress());
+      const protocol3Balance = await yieldManager.protocolBalances(await mockProtocol3.getAddress());
 
       expect(compoundBalance).to.be.lt(DEPLOY_AMOUNT.mul(3)); // Should be reduced
       expect(protocol3Balance).to.be.gt(0); // Should receive funds
@@ -364,8 +360,8 @@ describe("YieldManager", function () {
 
       await yieldManager.rebalancePositions();
 
-      const compoundBalance = await yieldManager.protocolBalances(mockCompound.address);
-      const protocol3Balance = await yieldManager.protocolBalances(mockProtocol3.address);
+      const compoundBalance = await yieldManager.protocolBalances(await mockCompound.getAddress());
+      const protocol3Balance = await yieldManager.protocolBalances(await mockProtocol3.getAddress());
 
       // Higher yield protocol should receive more funds
       expect(protocol3Balance).to.be.gt(compoundBalance);
@@ -380,8 +376,8 @@ describe("YieldManager", function () {
     });
 
     it("should handle single protocol gracefully", async function () {
-      await yieldManager.setYieldProtocol(mockAave.address, false);
-      await yieldManager.setYieldProtocol(mockProtocol3.address, false);
+      await yieldManager.setYieldProtocol(await mockAave.getAddress(), false);
+      await yieldManager.setYieldProtocol(await mockProtocol3.getAddress(), false);
 
       await expect(yieldManager.rebalancePositions()).to.not.be.reverted;
     });
@@ -389,11 +385,11 @@ describe("YieldManager", function () {
 
   describe("Position Queries", function () {
     beforeEach(async function () {
-      await yieldManager.setYieldProtocol(mockCompound.address, true);
-      await yieldManager.setYieldProtocol(mockAave.address, true);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
+      await yieldManager.setYieldProtocol(await mockAave.getAddress(), true);
       
-      await yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT);
-      await yieldManager.connect(vault).deployFunds(mockAave.address, DEPLOY_AMOUNT.mul(2));
+      await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
+      await yieldManager.connect(vault).deployFunds(await mockAave.getAddress(), DEPLOY_AMOUNT.mul(2));
     });
 
     it("should return active positions", async function () {
@@ -401,8 +397,10 @@ describe("YieldManager", function () {
       
       expect(positions.length).to.equal(2);
       
-      const compoundPosition = positions.find(p => p.protocol === mockCompound.address);
-      const aavePosition = positions.find(p => p.protocol === mockAave.address);
+      const mockCompoundAddr = await mockCompound.getAddress();
+      const mockAaveAddr = await mockAave.getAddress();
+      const compoundPosition = positions.find(p => p.protocol === mockCompoundAddr);
+      const aavePosition = positions.find(p => p.protocol === mockAaveAddr);
       
       expect(compoundPosition.balance).to.equal(DEPLOY_AMOUNT);
       expect(aavePosition.balance).to.equal(DEPLOY_AMOUNT.mul(2));
@@ -417,9 +415,9 @@ describe("YieldManager", function () {
     });
 
     it("should return protocol-specific data", async function () {
-      expect(await yieldManager.protocolBalances(mockCompound.address)).to.equal(DEPLOY_AMOUNT);
-      expect(await yieldManager.protocolBalances(mockAave.address)).to.equal(DEPLOY_AMOUNT.mul(2));
-      expect(await yieldManager.protocolBalances(mockProtocol3.address)).to.equal(0);
+      expect(await yieldManager.protocolBalances(await mockCompound.getAddress())).to.equal(DEPLOY_AMOUNT);
+      expect(await yieldManager.protocolBalances(await mockAave.getAddress())).to.equal(DEPLOY_AMOUNT.mul(2));
+      expect(await yieldManager.protocolBalances(await mockProtocol3.getAddress())).to.equal(0);
     });
 
     it("should track total deployed accurately", async function () {
@@ -429,21 +427,21 @@ describe("YieldManager", function () {
 
   describe("Emergency Functions", function () {
     beforeEach(async function () {
-      await yieldManager.setYieldProtocol(mockCompound.address, true);
-      await yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
+      await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
     });
 
     it("should emergency withdraw from protocol", async function () {
-      await expect(yieldManager.emergencyWithdraw(mockCompound.address))
+      await expect(yieldManager.emergencyWithdraw(await mockCompound.getAddress()))
         .to.emit(yieldManager, "EmergencyWithdrawal")
-        .withArgs(mockCompound.address, DEPLOY_AMOUNT);
+        .withArgs(await mockCompound.getAddress(), DEPLOY_AMOUNT);
 
-      expect(await yieldManager.protocolBalances(mockCompound.address)).to.equal(0);
+      expect(await yieldManager.protocolBalances(await mockCompound.getAddress())).to.equal(0);
     });
 
     it("should reject emergency withdraw by non-owner", async function () {
       await expect(
-        yieldManager.connect(user1).emergencyWithdraw(mockCompound.address)
+        yieldManager.connect(user1).emergencyWithdraw(await mockCompound.getAddress())
       ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
@@ -452,7 +450,7 @@ describe("YieldManager", function () {
         await yieldManager.pause();
         
         await expect(
-          yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT)
+          yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT)
         ).to.be.revertedWith("Pausable: paused");
       } catch (error) {
         // Pause functionality not implemented
@@ -464,26 +462,26 @@ describe("YieldManager", function () {
       // Simulate protocol failure
       await mockCompound.simulateFailure();
 
-      await expect(yieldManager.emergencyWithdraw(mockCompound.address)).to.not.be.reverted;
+      await expect(yieldManager.emergencyWithdraw(await mockCompound.getAddress())).to.not.be.reverted;
     });
   });
 
   describe("Security Features", function () {
     it("should prevent unauthorized access to vault functions", async function () {
-      await yieldManager.setYieldProtocol(mockCompound.address, true);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
 
       await expect(
-        yieldManager.connect(user1).deployFunds(mockCompound.address, DEPLOY_AMOUNT)
+        yieldManager.connect(user1).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT)
       ).to.be.revertedWith("Only vault can deploy funds");
 
       await expect(
-        yieldManager.connect(user1).withdrawFunds(mockCompound.address, DEPLOY_AMOUNT)
+        yieldManager.connect(user1).withdrawFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT)
       ).to.be.revertedWith("Only vault can withdraw funds");
     });
 
     it("should prevent unauthorized protocol management", async function () {
       await expect(
-        yieldManager.connect(user1).setYieldProtocol(mockCompound.address, true)
+        yieldManager.connect(user1).setYieldProtocol(await mockCompound.getAddress(), true)
       ).to.be.revertedWith("Ownable: caller is not the owner");
 
       await expect(
@@ -491,51 +489,51 @@ describe("YieldManager", function () {
       ).to.be.revertedWith("Ownable: caller is not the owner");
 
       await expect(
-        yieldManager.connect(user1).emergencyWithdraw(mockCompound.address)
+        yieldManager.connect(user1).emergencyWithdraw(await mockCompound.getAddress())
       ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
     it("should validate protocol addresses", async function () {
       await expect(
-        yieldManager.setYieldProtocol(ethers.constants.AddressZero, true)
+        yieldManager.setYieldProtocol(ZeroAddress, true)
       ).to.be.revertedWith("Invalid protocol address");
     });
 
     it("should handle reentrancy protection", async function () {
       // Test reentrancy protection on critical functions
       // This would require a malicious protocol contract
-      await yieldManager.setYieldProtocol(mockCompound.address, true);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
       
       // Normal operation should work
       await expect(
-        yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT)
+        yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT)
       ).to.not.be.reverted;
     });
 
     it("should protect against integer overflow/underflow", async function () {
-      await yieldManager.setYieldProtocol(mockCompound.address, true);
-      await yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
+      await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
 
       // Try to withdraw more than available
       await expect(
-        yieldManager.connect(vault).withdrawFunds(mockCompound.address, DEPLOY_AMOUNT.mul(2))
+        yieldManager.connect(vault).withdrawFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT.mul(2))
       ).to.be.revertedWith("Insufficient balance");
     });
   });
 
   describe("Gas Optimization", function () {
     it("should optimize gas for deployments", async function () {
-      await yieldManager.setYieldProtocol(mockCompound.address, true);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
 
-      const tx = await yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT);
+      const tx = await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
       const receipt = await tx.wait();
 
       expect(receipt.gasUsed).to.be.lt(200000); // Reasonable gas limit
     });
 
     it("should optimize gas for harvesting", async function () {
-      await yieldManager.setYieldProtocol(mockCompound.address, true);
-      await yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
+      await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
       await mockCompound.addYield(YIELD_AMOUNT);
 
       const tx = await yieldManager.harvestYield();
@@ -545,14 +543,14 @@ describe("YieldManager", function () {
     });
 
     it("should handle batch operations efficiently", async function () {
-      await yieldManager.setYieldProtocol(mockCompound.address, true);
-      await yieldManager.setYieldProtocol(mockAave.address, true);
-      await yieldManager.setYieldProtocol(mockProtocol3.address, true);
+      await yieldManager.setYieldProtocol(await mockCompound.getAddress(), true);
+      await yieldManager.setYieldProtocol(await mockAave.getAddress(), true);
+      await yieldManager.setYieldProtocol(await mockProtocol3.getAddress(), true);
 
       // Multiple deployments
-      await yieldManager.connect(vault).deployFunds(mockCompound.address, DEPLOY_AMOUNT);
-      await yieldManager.connect(vault).deployFunds(mockAave.address, DEPLOY_AMOUNT);
-      await yieldManager.connect(vault).deployFunds(mockProtocol3.address, DEPLOY_AMOUNT);
+      await yieldManager.connect(vault).deployFunds(await mockCompound.getAddress(), DEPLOY_AMOUNT);
+      await yieldManager.connect(vault).deployFunds(await mockAave.getAddress(), DEPLOY_AMOUNT);
+      await yieldManager.connect(vault).deployFunds(await mockProtocol3.getAddress(), DEPLOY_AMOUNT);
 
       // Add yield to all
       await mockCompound.addYield(YIELD_AMOUNT);

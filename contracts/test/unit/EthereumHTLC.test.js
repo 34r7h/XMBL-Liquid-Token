@@ -1,4 +1,5 @@
 const { expect } = require("chai");
+const { parseEther, keccak256, ZeroAddress, MaxUint256, ZeroHash } = require("ethers");
 const { ethers } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
@@ -12,9 +13,9 @@ describe("EthereumHTLC", function () {
   let mockToken;
 
   const SECRET = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
-  const HASHLOCK = ethers.utils.keccak256(SECRET);
+  const HASHLOCK = keccak256(SECRET);
   const TIMELOCK_DURATION = 3600; // 1 hour
-  const SWAP_AMOUNT = ethers.utils.parseEther("1.0");
+  const SWAP_AMOUNT = parseEther("1.0");
 
   beforeEach(async function () {
     [owner, initiator, recipient, user1, user2] = await ethers.getSigners();
@@ -22,16 +23,16 @@ describe("EthereumHTLC", function () {
     // Deploy mock ERC-20 token for testing
     const MockToken = await ethers.getContractFactory("MockERC20");
     mockToken = await MockToken.deploy("Test Token", "TEST", 18);
-    await mockToken.deployed();
+    // ethers v6: .deployed() is not needed
 
     // Deploy EthereumHTLC contract
     const EthereumHTLC = await ethers.getContractFactory("EthereumHTLC");
     htlc = await EthereumHTLC.deploy();
-    await htlc.deployed();
+    // ethers v6: .deployed() is not needed
 
     // Mint tokens for testing
-    await mockToken.mint(initiator.address, ethers.utils.parseEther("10"));
-    await mockToken.connect(initiator).approve(htlc.address, ethers.utils.parseEther("10"));
+    await mockToken.mint(initiator.address, parseEther("10"));
+    await mockToken.connect(initiator).approve(await htlc.getAddress(), parseEther("10"));
   });
 
   describe("Contract Deployment", function () {
@@ -73,7 +74,7 @@ describe("EthereumHTLC", function () {
       expect(swap.initiator).to.equal(initiator.address);
       expect(swap.recipient).to.equal(recipient.address);
       expect(swap.amount).to.equal(SWAP_AMOUNT);
-      expect(swap.token).to.equal(ethers.constants.AddressZero); // ETH
+      expect(swap.token).to.equal(ZeroAddress); // ETH
       expect(swap.timelock).to.equal(timelock);
       expect(swap.claimed).to.equal(false);
       expect(swap.refunded).to.equal(false);
@@ -88,15 +89,15 @@ describe("EthereumHTLC", function () {
           timelock,
           recipient.address,
           SWAP_AMOUNT,
-          mockToken.address
+          await mockToken.getAddress()
         )
       )
         .to.emit(htlc, "FundsLocked")
         .withArgs(HASHLOCK, initiator.address, recipient.address, SWAP_AMOUNT, timelock);
 
       const swap = await htlc.swaps(HASHLOCK);
-      expect(swap.token).to.equal(mockToken.address);
-      expect(await mockToken.balanceOf(htlc.address)).to.equal(SWAP_AMOUNT);
+      expect(swap.token).to.equal(await mockToken.getAddress());
+      expect(await mockToken.balanceOf(await htlc.getAddress())).to.equal(SWAP_AMOUNT);
     });
 
     it("should reject invalid timelock durations", async function () {
@@ -213,7 +214,7 @@ describe("EthereumHTLC", function () {
         .withArgs(HASHLOCK, recipient.address, SECRET);
 
       const finalBalance = await recipient.getBalance();
-      expect(finalBalance.sub(initialBalance)).to.be.closeTo(SWAP_AMOUNT, ethers.utils.parseEther("0.01"));
+      expect(finalBalance.sub(initialBalance)).to.be.closeTo(SWAP_AMOUNT, parseEther("0.01"));
 
       const swap = await htlc.swaps(HASHLOCK);
       expect(swap.claimed).to.equal(true);
@@ -265,14 +266,14 @@ describe("EthereumHTLC", function () {
 
     it("should handle ERC-20 token claims", async function () {
       const timelock = (await time.latest()) + TIMELOCK_DURATION;
-      const hashlock2 = ethers.utils.keccak256("0xsecret2");
+      const hashlock2 = keccak256("0xsecret2");
 
       await htlc.connect(initiator).lockERC20Funds(
         hashlock2,
         timelock,
         recipient.address,
         SWAP_AMOUNT,
-        mockToken.address
+        await mockToken.getAddress()
       );
 
       const initialBalance = await mockToken.balanceOf(recipient.address);
@@ -461,8 +462,8 @@ describe("EthereumHTLC", function () {
   describe("Batch Operations", function () {
     it("should handle multiple swaps per user", async function () {
       const timelock = (await time.latest()) + TIMELOCK_DURATION;
-      const hashlock2 = ethers.utils.keccak256("0xsecret2");
-      const hashlock3 = ethers.utils.keccak256("0xsecret3");
+      const hashlock2 = keccak256("0xsecret2");
+      const hashlock3 = keccak256("0xsecret3");
 
       await htlc.connect(initiator).lockFunds(
         HASHLOCK,
@@ -490,8 +491,8 @@ describe("EthereumHTLC", function () {
       const secrets = [];
 
       for (let i = 0; i < 3; i++) {
-        const secret = ethers.utils.keccak256(`0xsecret${i}`);
-        const hashlock = ethers.utils.keccak256(secret);
+        const secret = keccak256(`0xsecret${i}`);
+        const hashlock = keccak256(secret);
         
         secrets.push(secret);
         hashlocks.push(hashlock);
@@ -567,8 +568,8 @@ describe("EthereumHTLC", function () {
     it("should prevent reentrancy attacks", async function () {
       // Test with malicious contract that tries to reenter
       const MaliciousContract = await ethers.getContractFactory("MaliciousReentrancy");
-      const malicious = await MaliciousContract.deploy(htlc.address);
-      await malicious.deployed();
+      const malicious = await MaliciousContract.deploy(await htlc.getAddress());
+      // ethers v6: .deployed() is not needed
 
       const timelock = (await time.latest()) + TIMELOCK_DURATION;
 
@@ -597,15 +598,15 @@ describe("EthereumHTLC", function () {
 
       // Try to create too many swaps
       for (let i = 0; i < 100; i++) {
-        const hashlock = ethers.utils.keccak256(`0xhash${i}`);
+        const hashlock = keccak256(`0xhash${i}`);
         
         if (i < 50) {
           await htlc.connect(initiator).lockFunds(
             hashlock,
             timelock,
             recipient.address,
-            ethers.utils.parseEther("0.01"),
-            { value: ethers.utils.parseEther("0.01") }
+            parseEther("0.01"),
+            { value: parseEther("0.01") }
           );
         } else {
           await expect(
@@ -613,8 +614,8 @@ describe("EthereumHTLC", function () {
               hashlock,
               timelock,
               recipient.address,
-              ethers.utils.parseEther("0.01"),
-              { value: ethers.utils.parseEther("0.01") }
+              parseEther("0.01"),
+              { value: parseEther("0.01") }
             )
           ).to.be.revertedWith("Too many active swaps");
           break;
@@ -644,13 +645,13 @@ describe("EthereumHTLC", function () {
       const gasUsed = [];
 
       for (let i = 0; i < 5; i++) {
-        const hashlock = ethers.utils.keccak256(`0xhash${i}`);
+        const hashlock = keccak256(`0xhash${i}`);
         const tx = await htlc.connect(initiator).lockFunds(
           hashlock,
           timelock,
           recipient.address,
-          ethers.utils.parseEther("0.1"),
-          { value: ethers.utils.parseEther("0.1") }
+          parseEther("0.1"),
+          { value: parseEther("0.1") }
         );
         
         const receipt = await tx.wait();
@@ -684,15 +685,15 @@ describe("EthereumHTLC", function () {
 
       for (const duration of timelocks) {
         const timelock = (await time.latest()) + duration;
-        const hashlock = ethers.utils.keccak256(`0xtest${duration}`);
+        const hashlock = keccak256(`0xtest${duration}`);
 
         await expect(
           htlc.connect(initiator).lockFunds(
             hashlock,
             timelock,
             recipient.address,
-            ethers.utils.parseEther("0.1"),
-            { value: ethers.utils.parseEther("0.1") }
+            parseEther("0.1"),
+            { value: parseEther("0.1") }
           )
         ).to.not.be.reverted;
       }
@@ -717,7 +718,7 @@ describe("EthereumHTLC", function () {
 
     it("should handle very large amounts", async function () {
       const timelock = (await time.latest()) + TIMELOCK_DURATION;
-      const largeAmount = ethers.utils.parseEther("1000");
+      const largeAmount = parseEther("1000");
 
       await expect(
         htlc.connect(initiator).lockFunds(
@@ -737,7 +738,7 @@ describe("EthereumHTLC", function () {
         htlc.connect(initiator).lockFunds(
           HASHLOCK,
           timelock,
-          ethers.constants.AddressZero,
+          ZeroAddress,
           SWAP_AMOUNT,
           { value: SWAP_AMOUNT }
         )
@@ -751,7 +752,7 @@ describe("EthereumHTLC", function () {
         htlc.connect(initiator).lockFunds(
           HASHLOCK,
           timelock,
-          htlc.address,
+          await htlc.getAddress(),
           SWAP_AMOUNT,
           { value: SWAP_AMOUNT }
         )
