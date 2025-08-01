@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { 
   healthCheck,
   getProtocolStats,
@@ -11,7 +11,7 @@ import {
   getTokenPrices,
   handleWebSocketConnection,
   priceService
-} from '../api/controllers'
+} from '../../api/controllers'
 
 // Mock response object
 const createMockResponse = () => {
@@ -30,6 +30,10 @@ const createMockResponse = () => {
 };
 
 describe('API Controllers', () => {
+  beforeEach(() => {
+    process.env.NODE_ENV = 'test'
+  })
+
   describe('Health Check', () => {
     it('should return health status', async () => {
       const req = {};
@@ -42,7 +46,7 @@ describe('API Controllers', () => {
       expect(res.data.data).toHaveProperty('status', 'healthy');
       expect(res.data.data).toHaveProperty('services');
     });
-  });
+  })
 
   describe('Protocol Stats', () => {
     it('should return protocol statistics', async () => {
@@ -57,7 +61,7 @@ describe('API Controllers', () => {
       expect(res.data.data).toHaveProperty('users');
       expect(res.data.data).toHaveProperty('apy');
     });
-  });
+  })
 
   describe('Token Quotes', () => {
     it('should return token quotes with valid parameters', async () => {
@@ -87,7 +91,7 @@ describe('API Controllers', () => {
       expect(res.data).toHaveProperty('success', false);
       expect(res.data.error).toContain('Missing required parameters');
     });
-  });
+  })
 
   describe('Yield Data', () => {
     it('should return yield data', async () => {
@@ -100,7 +104,7 @@ describe('API Controllers', () => {
       expect(res.data).toHaveProperty('success', true);
       expect(res.data.data).toBeDefined();
     });
-  });
+  })
 
   describe('User Portfolio', () => {
     it('should return user portfolio with valid address', async () => {
@@ -128,7 +132,7 @@ describe('API Controllers', () => {
       expect(res.data).toHaveProperty('success', false);
       expect(res.data.error).toContain('User address is required');
     });
-  });
+  })
 
   describe('User Transactions', () => {
     it('should return user transactions with valid address', async () => {
@@ -155,7 +159,7 @@ describe('API Controllers', () => {
       expect(res.statusCode).toBe(400);
       expect(res.data).toHaveProperty('success', false);
     });
-  });
+  })
 
   describe('Submit Transaction', () => {
     it('should submit transaction with valid data', async () => {
@@ -186,7 +190,7 @@ describe('API Controllers', () => {
       expect(res.data).toHaveProperty('success', false);
       expect(res.data.error).toContain('Transaction data is required');
     });
-  });
+  })
 
   describe('Bonding Curve Rate', () => {
     it('should return bonding curve rate', async () => {
@@ -201,7 +205,7 @@ describe('API Controllers', () => {
       expect(res.data.data).toHaveProperty('nextRate');
       expect(res.data.data).toHaveProperty('totalSupply');
     });
-  });
+  })
 
   describe('Token Prices', () => {
     it('should return token prices', async () => {
@@ -216,7 +220,7 @@ describe('API Controllers', () => {
       expect(res.data.data).toHaveProperty('ETH');
       expect(res.data.data).toHaveProperty('USDC');
     });
-  });
+  })
 
   describe('WebSocket Connection', () => {
     it('should handle WebSocket connection', () => {
@@ -239,7 +243,7 @@ describe('API Controllers', () => {
       expect(mockWs.handlers).toHaveProperty('message');
       expect(mockWs.handlers).toHaveProperty('close');
     });
-  });
+  })
 
   describe('Price Service', () => {
     it('should get BTC price', async () => {
@@ -259,5 +263,5 @@ describe('API Controllers', () => {
       expect(rates.compound).toHaveProperty('capacity');
       expect(rates.compound).toHaveProperty('risk');
     });
-  });
+  })
 })
