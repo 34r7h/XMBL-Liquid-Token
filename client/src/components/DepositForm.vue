@@ -475,7 +475,7 @@ const estimateGas = async () => {
     gasEstimationError.value = null
     const estimate = await web3Service.estimateGas(
       selectedToken.value.address,
-      depositAmount.value
+      [depositAmount.value]
     )
     gasEstimate.value = estimate
   } catch (error: any) {

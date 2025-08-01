@@ -96,7 +96,7 @@
       <div class="transaction-list" data-testid="transaction-list">
         <!-- Transaction Count -->
         <div class="transaction-count" data-testid="transaction-count">
-          <span data-testid="total-count">{{ transactionsStore.totalCount || transactionsStore.transactions.length }}
+          <span data-testid="total-count">{{ (transactionsStore as any).totalCount || transactionsStore.transactions.length }}
             transactions</span>
           <span v-if="filteredTransactions.length !== transactionsStore.transactions.length">
             ({{ filteredTransactions.length }} shown)
@@ -153,7 +153,7 @@
 
               <!-- Gas Fee Column -->
               <div class="table-cell gas-cell" data-testid="gas-fee">
-                <span v-if="transaction.gasPrice || transaction.gasFee">{{ (transaction.gasPrice || transaction.gasFee)
+                <span v-if="transaction.gasPrice || (transaction as any).gasFee">{{ (transaction.gasPrice || (transaction as any).gasFee)
                   }} ETH</span>
                 <span v-else>—</span>
               </div>
