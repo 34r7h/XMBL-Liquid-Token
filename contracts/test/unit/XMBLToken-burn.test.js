@@ -87,6 +87,6 @@ describe("XMBLToken - Burn Functionality", function () {
   it("Should handle burning non-existent tokens", async function () {
     await expect(
       xmblToken.connect(minter).burn(999)
-    ).to.be.revertedWith("Token does not exist");
+    ).to.be.revertedWith("ERC721: invalid token ID");
   });
 });

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import "./TBAImplementation.sol";
+
 contract ERC6551Registry {
     mapping(bytes32 => address) public accounts;
     
@@ -33,23 +35,15 @@ contract ERC6551Registry {
         accountAddress = accounts[accountHash];
         
         if (accountAddress == address(0)) {
-            // Create a deterministic address for testing
-            accountAddress = address(
-                uint160(
-                    uint256(
-                        keccak256(
-                            abi.encodePacked(
-                                "ERC6551Account",
-                                implementation,
-                                chainId,
-                                tokenContract,
-                                tokenId,
-                                salt
-                            )
-                        )
-                    )
-                )
-            );
+            // For testing purposes, we'll create a simple proxy-style deployment
+            // In a real implementation, this would use CREATE2 with proper bytecode
+            
+            // Deploy a new TBA instance
+            TBAImplementation tba = new TBAImplementation();
+            accountAddress = address(tba);
+            
+            // Initialize the TBA with the token contract and token ID
+            try tba.initialize(tokenContract, tokenId) {} catch {}
             
             accounts[accountHash] = accountAddress;
             

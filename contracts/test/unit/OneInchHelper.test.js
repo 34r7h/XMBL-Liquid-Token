@@ -26,13 +26,12 @@ describe("OneInchHelper", function () {
     const MockERC20 = await ethers.getContractFactory("MockERC20");
     mockToken1 = await MockERC20.deploy("Token1", "TK1", 18);
     mockToken2 = await MockERC20.deploy("Token2", "TK2", 18);
-    await mockToken1.deployed();
-    // ethers v6: .deployed() is not needed
-    // ethers v6: .deployed() is not needed
-    // ethers v6: .deployed() is not needed
+    await mockToken1.waitForDeployment();
+    await mockToken2.waitForDeployment();
+    
     const MockOneInchRouter = await ethers.getContractFactory("MockOneInchRouter");
     mockRouter = await MockOneInchRouter.deploy();
-    await mockRouter.deployed();
+    await mockRouter.waitForDeployment();
 
     // Note: Skip tests if OneInchHelper library is not implemented
     try {

@@ -407,6 +407,12 @@ contract XMBLToken is ERC721, ERC721Enumerable, AccessControlNoHash, Pausable, R
         _unpause();
     }
 
+    function setMinter(address newMinter) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newMinter != address(0), "Minter cannot be zero address");
+        _grantRole(MINTER_ROLE, newMinter);
+        emit MinterUpdated(address(0), newMinter); // Simplified event
+    }
+
     function _beforeTokenTransfer(
         address from,
         address to,

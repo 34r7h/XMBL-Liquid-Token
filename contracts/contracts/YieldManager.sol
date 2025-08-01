@@ -70,6 +70,10 @@ contract YieldManager is Ownable, ReentrancyGuard, Pausable {
         vaultContract = _vaultContract;
     }
 
+    function setVault(address _vaultContract) external onlyOwner {
+        vaultContract = _vaultContract;
+    }
+
     // Protocol management
     function setYieldProtocol(address protocol, bool enabled) external onlyOwner validProtocol(protocol) {
         bool wasEnabled = enabledProtocols[protocol];

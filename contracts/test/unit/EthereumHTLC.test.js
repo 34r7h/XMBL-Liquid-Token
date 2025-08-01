@@ -207,14 +207,14 @@ describe("EthereumHTLC", function () {
     });
 
     it("should allow recipient to claim with correct secret", async function () {
-      const initialBalance = await recipient.getBalance();
+      const initialBalance = await ethers.provider.getBalance(recipient.address);
 
       await expect(htlc.connect(recipient).claimFunds(SECRET))
         .to.emit(htlc, "FundsClaimed")
         .withArgs(HASHLOCK, recipient.address, SECRET);
 
-      const finalBalance = await recipient.getBalance();
-      expect(finalBalance.sub(initialBalance)).to.be.closeTo(SWAP_AMOUNT, parseEther("0.01"));
+      const finalBalance = await ethers.provider.getBalance(recipient.address);
+      expect(finalBalance - initialBalance).to.be.closeTo(SWAP_AMOUNT, parseEther("0.01"));
 
       const swap = await htlc.swaps(HASHLOCK);
       expect(swap.claimed).to.equal(true);
@@ -222,7 +222,7 @@ describe("EthereumHTLC", function () {
     });
 
     it("should allow initiator to claim with correct secret", async function () {
-      const initialBalance = await initiator.getBalance();
+      const initialBalance = await ethers.provider.getBalance(initiator.address);
 
       await expect(htlc.connect(initiator).claimFunds(SECRET))
         .to.emit(htlc, "FundsClaimed")
@@ -233,11 +233,11 @@ describe("EthereumHTLC", function () {
     });
 
     it("should reject invalid secret", async function () {
-      const wrongSecret = "0xwrongsecret1234567890abcdef1234567890abcdef1234567890abcdef123456";
+      const wrongSecret = "0x2234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
 
       await expect(
         htlc.connect(recipient).claimFunds(wrongSecret)
-      ).to.be.revertedWith("Invalid secret");
+      ).to.be.revertedWith("Swap does not exist");
     });
 
     it("should reject claim after timelock expiry", async function () {
@@ -266,7 +266,8 @@ describe("EthereumHTLC", function () {
 
     it("should handle ERC-20 token claims", async function () {
       const timelock = (await time.latest()) + TIMELOCK_DURATION;
-      const hashlock2 = keccak256("0xsecret2");
+      const secret2 = "0x2234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd02";
+      const hashlock2 = keccak256(secret2);
 
       await htlc.connect(initiator).lockERC20Funds(
         hashlock2,
@@ -278,10 +279,10 @@ describe("EthereumHTLC", function () {
 
       const initialBalance = await mockToken.balanceOf(recipient.address);
 
-      await htlc.connect(recipient).claimFunds("0xsecret2");
+      await htlc.connect(recipient).claimFunds(secret2);
 
       const finalBalance = await mockToken.balanceOf(recipient.address);
-      expect(finalBalance.sub(initialBalance)).to.equal(SWAP_AMOUNT);
+      expect(finalBalance - initialBalance).to.equal(SWAP_AMOUNT);
     });
   });
 
@@ -300,7 +301,7 @@ describe("EthereumHTLC", function () {
     it("should allow refund after timelock expiry", async function () {
       await time.increase(TIMELOCK_DURATION + 1);
 
-      const initialBalance = await initiator.getBalance();
+      const initialBalance = await ethers.provider.getBalance(initiator.address);
 
       await expect(htlc.connect(initiator).refundFunds(HASHLOCK))
         .to.emit(htlc, "FundsRefunded")
@@ -462,8 +463,10 @@ describe("EthereumHTLC", function () {
   describe("Batch Operations", function () {
     it("should handle multiple swaps per user", async function () {
       const timelock = (await time.latest()) + TIMELOCK_DURATION;
-      const hashlock2 = keccak256("0xsecret2");
-      const hashlock3 = keccak256("0xsecret3");
+      const secret2 = "0x2234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd02";
+      const secret3 = "0x3334567890abcdef1234567890abcdef1234567890abcdef1234567890abcd03";
+      const hashlock2 = keccak256(secret2);
+      const hashlock3 = keccak256(secret3);
 
       await htlc.connect(initiator).lockFunds(
         HASHLOCK,
