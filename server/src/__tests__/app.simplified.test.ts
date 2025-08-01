@@ -91,12 +91,18 @@ describe('Application Entry Point', () => {
     })
 
     it('should validate environment variables', async () => {
+      const originalEnv = process.env.NODE_ENV
+      const originalPort = process.env.PORT
+      
+      // Temporarily change to production to enable validation
+      process.env.NODE_ENV = 'production'
       delete process.env.PORT
 
       await expect(initializeApp()).rejects.toThrow('Missing required environment variable: PORT')
       
       // Restore for other tests
-      process.env.PORT = '3001'
+      process.env.NODE_ENV = originalEnv
+      process.env.PORT = originalPort || '3001'
     })
 
     it('should set up database connection', async () => {

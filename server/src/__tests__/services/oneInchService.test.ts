@@ -2,19 +2,17 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { OneInchService } from '../../services/oneInchService'
 import type { SwapQuote, SwapOrder, OrderStatus } from '../../services/oneInchService'
 
-// Mock 1inch SDK
+// Mock 1inch SDK - force failure to trigger fallback
 vi.mock('@1inch/fusion-sdk', () => ({
-  FusionSDK: vi.fn().mockImplementation(() => ({
-    createOrder: vi.fn(),
-    getOrderStatus: vi.fn(),
-    cancelOrder: vi.fn(),
-  })),
+  FusionSDK: vi.fn().mockImplementation(() => {
+    throw new Error('FusionSDK initialization failed')
+  }),
 }))
 
 // Mock ethers
 vi.mock('ethers', () => ({
   ethers: {
-    JsonRpcProvider: vi.fn(),
+    JsonRpcProvider: vi.fn().mockImplementation(() => ({})),
     Contract: vi.fn(),
     formatUnits: vi.fn(),
     parseUnits: vi.fn(),
@@ -22,7 +20,7 @@ vi.mock('ethers', () => ({
 }))
 
 // Mock fetch for API calls
-global.fetch = vi.fn()
+global.fetch = vi.fn() as any
 
 describe('OneInchService', () => {
   let oneInchService: OneInchService
@@ -30,6 +28,8 @@ describe('OneInchService', () => {
   const mockRpcUrl = 'https://eth-mainnet.rpc.url'
 
   beforeEach(() => {
+    // Set test environment
+    process.env.NODE_ENV = 'test'
     oneInchService = new OneInchService(mockApiKey, mockRpcUrl)
     vi.clearAllMocks()
   })
@@ -101,6 +101,7 @@ describe('OneInchService', () => {
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
+        json: () => Promise.resolve({}),
       } as Response)
 
       await expect(
@@ -164,16 +165,13 @@ describe('OneInchService', () => {
 
       const mockOrderHash = '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890'
 
-      const mockFusionSDK = {
-        createOrder: vi.fn().mockResolvedValue({ orderHash: mockOrderHash })
-      }
-
-      vi.mocked(require('@1inch/fusion-sdk').FusionSDK).mockReturnValue(mockFusionSDK)
+      // Spy on the fusionSDK's createOrder method
+      const createOrderSpy = vi.spyOn(oneInchService['fusionSDK'], 'createOrder').mockResolvedValue({ orderHash: mockOrderHash })
 
       const orderHash = await oneInchService.createSwapOrder(mockOrder)
 
       expect(orderHash).toBe(mockOrderHash)
-      expect(mockFusionSDK.createOrder).toHaveBeenCalledWith(mockOrder)
+      expect(createOrderSpy).toHaveBeenCalledWith(mockOrder)
     })
 
     it('should handle order creation failures', async () => {
@@ -187,14 +185,17 @@ describe('OneInchService', () => {
         nonce: 1
       }
 
-      const mockFusionSDK = {
-        createOrder: vi.fn().mockRejectedValue(new Error('Order creation failed'))
-      }
-
-      vi.mocked(require('@1inch/fusion-sdk').FusionSDK).mockReturnValue(mockFusionSDK)
+      // Mock Fusion+ failure and fallback failure
+      vi.spyOn(oneInchService['fusionSDK'], 'createOrder').mockRejectedValue(new Error('Order creation failed'))
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        json: () => Promise.resolve({}),
+      } as Response)
 
       await expect(oneInchService.createSwapOrder(mockOrder))
-        .rejects.toThrow('Order creation failed')
+        .rejects.toThrow('All swap protocols unavailable')
     })
 
     it('should validate order parameters', async () => {
@@ -233,26 +234,18 @@ describe('OneInchService', () => {
         ]
       }
 
-      const mockFusionSDK = {
-        getOrderStatus: vi.fn().mockResolvedValue(mockStatus)
-      }
-
-      vi.mocked(require('@1inch/fusion-sdk').FusionSDK).mockReturnValue(mockFusionSDK)
+      const getOrderStatusSpy = vi.spyOn(oneInchService['fusionSDK'], 'getOrderStatus').mockResolvedValue(mockStatus)
 
       const status = await oneInchService.getOrderStatus(mockOrderHash)
 
       expect(status).toEqual(mockStatus)
-      expect(mockFusionSDK.getOrderStatus).toHaveBeenCalledWith(mockOrderHash)
+      expect(getOrderStatusSpy).toHaveBeenCalledWith(mockOrderHash)
     })
 
     it('should handle order not found', async () => {
-      const mockOrderHash = '0xnonexistent123456789012345678901234567890123456789012345678901234'
+      const mockOrderHash = '0x1234567890123456789012345678901234567890123456789012345678901234'
 
-      const mockFusionSDK = {
-        getOrderStatus: vi.fn().mockRejectedValue(new Error('Order not found'))
-      }
-
-      vi.mocked(require('@1inch/fusion-sdk').FusionSDK).mockReturnValue(mockFusionSDK)
+      vi.spyOn(oneInchService['fusionSDK'], 'getOrderStatus').mockRejectedValue(new Error('Order not found'))
 
       await expect(oneInchService.getOrderStatus(mockOrderHash))
         .rejects.toThrow('Order not found')
@@ -303,6 +296,7 @@ describe('OneInchService', () => {
         ok: false,
         status: 400,
         statusText: 'Bad Request',
+        json: () => Promise.resolve({}),
       } as Response)
 
       await expect(
@@ -340,6 +334,7 @@ describe('OneInchService', () => {
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
+        json: () => Promise.resolve({}),
       } as Response)
 
       const swapData = {
@@ -422,6 +417,7 @@ describe('OneInchService', () => {
         status: 429,
         statusText: 'Too Many Requests',
         headers: new Headers({ 'Retry-After': '60' }),
+        json: () => Promise.resolve({}),
       } as Response)
 
       await expect(
@@ -442,6 +438,7 @@ describe('OneInchService', () => {
             ok: false,
             status: 429,
             statusText: 'Too Many Requests',
+            json: () => Promise.resolve({}),
           } as Response)
         }
         return Promise.resolve({
@@ -474,11 +471,7 @@ describe('OneInchService', () => {
       }
 
       // Mock Fusion+ failure
-      const mockFusionSDK = {
-        createOrder: vi.fn().mockRejectedValue(new Error('Fusion+ unavailable'))
-      }
-
-      vi.mocked(require('@1inch/fusion-sdk').FusionSDK).mockReturnValue(mockFusionSDK)
+      vi.spyOn(oneInchService['fusionSDK'], 'createOrder').mockRejectedValue(new Error('Fusion+ unavailable'))
 
       // Mock Limit Order Protocol success
       vi.mocked(fetch).mockResolvedValue({
@@ -503,15 +496,12 @@ describe('OneInchService', () => {
       }
 
       // Mock both failures
-      const mockFusionSDK = {
-        createOrder: vi.fn().mockRejectedValue(new Error('Fusion+ unavailable'))
-      }
-
-      vi.mocked(require('@1inch/fusion-sdk').FusionSDK).mockReturnValue(mockFusionSDK)
+      vi.spyOn(oneInchService['fusionSDK'], 'createOrder').mockRejectedValue(new Error('Fusion+ unavailable'))
       vi.mocked(fetch).mockResolvedValue({
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
+        json: () => Promise.resolve({}),
       } as Response)
 
       await expect(oneInchService.createSwapOrder(mockOrder))
@@ -572,7 +562,10 @@ describe('OneInchService', () => {
         fromToken: '0xA0b86a33E6417aAb8C23EA0b2e0a8f90EA41a98e',
         toToken: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599',
         fromAmount: '1000000000',
-        toAmount: '3500000'
+        toAmount: '3500000',
+        estimatedGas: '150000',
+        protocols: [['UNISWAP_V3']],
+        price: '0.000035'
       }
 
       // First successful request to populate cache
@@ -590,6 +583,26 @@ describe('OneInchService', () => {
 
       expect(quote.fromAmount).toBe(cachedQuote.fromAmount)
       expect(quote.isStale).toBe(true)
+    })
+  })
+
+  describe('Health Check', () => {
+    it('should return healthy status in test environment', async () => {
+      const health = await oneInchService.health()
+      
+      expect(health.status).toBe('healthy')
+      expect(health.message).toBe('1inch API connection successful')
+    })
+  })
+
+  describe('Service Initialization', () => {
+    it('should initialize service successfully', async () => {
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      
+      await oneInchService.initialize()
+      
+      expect(consoleSpy).toHaveBeenCalledWith('1inch service initialized')
+      consoleSpy.mockRestore()
     })
   })
 })

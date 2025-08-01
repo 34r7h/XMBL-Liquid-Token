@@ -1,32 +1,23 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { profitDistributionService } from '../services/profitDistributionService'
+import { profitDistributionService } from '../../services/profitDistributionService'
 
 // Mock dependencies
 vi.mock('ethers', () => ({
   ethers: {
     Contract: vi.fn(),
-    providers: {
-      JsonRpcProvider: vi.fn()
-    },
-    utils: {
-      parseEther: vi.fn(),
-      formatEther: vi.fn()
-    }
+    JsonRpcProvider: vi.fn(),
+    parseEther: vi.fn(),
+    formatEther: vi.fn()
   }
 }))
 
-vi.mock('../utils/database', () => ({
+vi.mock('../../utils/database', () => ({
   database: {
     query: vi.fn(),
     insert: vi.fn(),
-    update: vi.fn()
+    update: vi.fn(),
+    delete: vi.fn()
   }
-}))
-
-vi.mock('../config/contracts', () => ({
-  XMBL_TOKEN_ADDRESS: '0xNFT123...',
-  TBA_REGISTRY_ADDRESS: '0xTBA123...',
-  YIELD_MANAGER_ADDRESS: '0xYIELD123...'
 }))
 
 describe('Profit Distribution Service', () => {

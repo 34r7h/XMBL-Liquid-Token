@@ -1,35 +1,23 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { blockchainMonitor } from '../services/blockchainMonitor'
+import { blockchainMonitor } from '../../services/blockchainMonitor'
 
 // Mock dependencies
 vi.mock('ethers', () => ({
   ethers: {
     Contract: vi.fn(),
-    providers: {
-      WebSocketProvider: vi.fn(),
-      JsonRpcProvider: vi.fn()
-    },
-    utils: {
-      parseEther: vi.fn(),
-      formatEther: vi.fn()
-    }
+    WebSocketProvider: vi.fn(),
+    JsonRpcProvider: vi.fn(),
+    parseEther: vi.fn(),
+    formatEther: vi.fn()
   }
 }))
 
-vi.mock('../utils/database', () => ({
+vi.mock('../../utils/database', () => ({
   database: {
     query: vi.fn(),
     insert: vi.fn(),
-    update: vi.fn()
-  }
-}))
-
-vi.mock('../config/contracts', () => ({
-  XMBL_VAULT_ADDRESS: '0x123...',
-  XMBL_VAULT_ABI: [],
-  NETWORK_CONFIG: {
-    ethereum: { rpc: 'wss://eth-mainnet.ws', chainId: 1 },
-    polygon: { rpc: 'wss://polygon-mainnet.ws', chainId: 137 }
+    update: vi.fn(),
+    delete: vi.fn()
   }
 }))
 
@@ -40,10 +28,13 @@ describe('Blockchain Monitor Service', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     
+    // Set up environment for test mode
+    process.env.NODE_ENV = 'test'
+    
     mockProvider = {
       on: vi.fn(),
       off: vi.fn(),
-      getBlockNumber: vi.fn(),
+      getBlockNumber: vi.fn().mockResolvedValue(1000),
       getNetwork: vi.fn().mockResolvedValue({ chainId: 1 }),
       removeAllListeners: vi.fn()
     }
@@ -54,15 +45,12 @@ describe('Blockchain Monitor Service', () => {
       removeAllListeners: vi.fn(),
       filters: {
         Deposit: vi.fn(),
-        SwapComplete: vi.fn(),
+        SwapCompleted: vi.fn(),
         BridgeInitiated: vi.fn(),
-        YieldDistribution: vi.fn()
+        YieldDistributed: vi.fn()
       },
-      queryFilter: vi.fn()
+      queryFilter: vi.fn().mockResolvedValue([])
     }
-
-    vi.mocked(require('ethers').ethers.providers.WebSocketProvider).mockReturnValue(mockProvider)
-    vi.mocked(require('ethers').ethers.Contract).mockReturnValue(mockContract)
   })
 
   afterEach(() => {

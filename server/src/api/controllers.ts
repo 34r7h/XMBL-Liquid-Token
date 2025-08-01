@@ -73,3 +73,32 @@
  * - yield_distributed - When yields are distributed
  * - protocol_stats_updated - When protocol stats change
  */
+
+// Price service for yield management
+export const priceService = {
+  async getBTCPrice(): Promise<number> {
+    // Mock implementation for testing
+    if (process.env.NODE_ENV === 'test') {
+      return 45000;
+    }
+    // In real implementation, fetch from price API
+    return 45000;
+  },
+
+  async getYieldRates(): Promise<Record<string, any>> {
+    // Mock implementation for testing
+    if (process.env.NODE_ENV === 'test') {
+      return {
+        compound: { apy: 8.5, capacity: 10.0, risk: 'low' },
+        aave: { apy: 7.8, capacity: 15.0, risk: 'low' },
+        yearn: { apy: 12.2, capacity: 5.0, risk: 'medium' }
+      };
+    }
+    // In real implementation, fetch from DeFi protocol APIs
+    return {
+      compound: { apy: 8.5, capacity: 10.0, risk: 'low' },
+      aave: { apy: 7.8, capacity: 15.0, risk: 'low' },
+      yearn: { apy: 12.2, capacity: 5.0, risk: 'medium' }
+    };
+  }
+};

@@ -1,21 +1,17 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { yieldManagementService } from '../services/yieldManagementService'
+import { yieldManagementService } from '../../services/yieldManagementService'
 
 // Mock dependencies
 vi.mock('ethers', () => ({
   ethers: {
     Contract: vi.fn(),
-    providers: {
-      JsonRpcProvider: vi.fn()
-    },
-    utils: {
-      parseEther: vi.fn(),
-      formatEther: vi.fn()
-    }
+    JsonRpcProvider: vi.fn().mockImplementation(() => ({})),
+    parseEther: vi.fn(),
+    formatEther: vi.fn()
   }
 }))
 
-vi.mock('../utils/database', () => ({
+vi.mock('../../utils/database', () => ({
   database: {
     query: vi.fn(),
     insert: vi.fn(),
@@ -24,7 +20,7 @@ vi.mock('../utils/database', () => ({
   }
 }))
 
-vi.mock('../api/controllers', () => ({
+vi.mock('../../api/controllers', () => ({
   priceService: {
     getBTCPrice: vi.fn(),
     getYieldRates: vi.fn()
@@ -119,7 +115,7 @@ describe('Yield Management Service', () => {
       }
       vi.mocked(require('ethers').ethers.Contract).mockReturnValue(mockContract)
 
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.insert).mockResolvedValue({ id: 1 })
 
       await yieldManagementService.deployToYieldProtocol(0.5, 'compound')
@@ -141,7 +137,7 @@ describe('Yield Management Service', () => {
         { id: 2, protocol: 'aave', amount: 0.3, yield_earned: 0.018 }
       ]
 
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue(mockPositions)
 
       const mockContract = {
@@ -160,7 +156,7 @@ describe('Yield Management Service', () => {
         { id: 1, protocol: 'compound', amount: 0.5, yield_earned: 0.025 }
       ]
 
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue(mockPositions)
 
       const mockContract = {
@@ -176,7 +172,7 @@ describe('Yield Management Service', () => {
         { id: 1, protocol: 'compound', amount: 0.5, yield_earned: 0.025 }
       ]
 
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue(mockPositions)
       vi.mocked(database.update).mockResolvedValue({ affected: 1 })
 
@@ -199,7 +195,7 @@ describe('Yield Management Service', () => {
     })
 
     it('should handle empty active positions', async () => {
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue([])
 
       const totalYield = await yieldManagementService.harvestYield()
@@ -222,7 +218,7 @@ describe('Yield Management Service', () => {
         }
       ]
 
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue(mockPositions)
 
       const mockContract = {
@@ -259,7 +255,7 @@ describe('Yield Management Service', () => {
         }
       ]
 
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue(mockPositions)
 
       const positions = await yieldManagementService.getActivePositions()
@@ -272,7 +268,7 @@ describe('Yield Management Service', () => {
     })
 
     it('should handle database query failures', async () => {
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockRejectedValue(new Error('Database error'))
 
       await expect(yieldManagementService.getActivePositions()).rejects.toThrow('Database error')
@@ -283,7 +279,7 @@ describe('Yield Management Service', () => {
         { id: 1, protocol: 'compound', amount: 0.5, apy: 8.5 }
       ]
 
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue(compoundPositions)
 
       const positions = await yieldManagementService.getActivePositions('compound')
@@ -307,7 +303,7 @@ describe('Yield Management Service', () => {
         }
       ]
 
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue(mockPositions)
 
       const positions = await yieldManagementService.getActivePositions()
@@ -328,7 +324,7 @@ describe('Yield Management Service', () => {
         yearn: { apy: 12.2, capacity: 5.0, risk: 'medium' }
       }
 
-      const { priceService } = await import('../api/controllers')
+      const { priceService } = await import('../../api/controllers')
       vi.mocked(priceService.getYieldRates).mockResolvedValue(mockRates)
 
       const allocation = await yieldManagementService.calculateOptimalAllocation(availableBTC)
@@ -349,7 +345,7 @@ describe('Yield Management Service', () => {
         yearn: { apy: 15.0, capacity: 5.0, risk: 'high' }
       }
 
-      const { priceService } = await import('../api/controllers')
+      const { priceService } = await import('../../api/controllers')
       vi.mocked(priceService.getYieldRates).mockResolvedValue(mockRates)
 
       const conservativeAllocation = await yieldManagementService.calculateOptimalAllocation(
@@ -373,7 +369,7 @@ describe('Yield Management Service', () => {
         aave: { apy: 7.8, capacity: 100.0, risk: 'low' }
       }
 
-      const { priceService } = await import('../api/controllers')
+      const { priceService } = await import('../../api/controllers')
       vi.mocked(priceService.getYieldRates).mockResolvedValue(mockRates)
 
       const allocation = await yieldManagementService.calculateOptimalAllocation(availableBTC)
@@ -388,7 +384,7 @@ describe('Yield Management Service', () => {
         compound: { apy: 8.5, capacity: 1.0, risk: 'low' }
       }
 
-      const { priceService } = await import('../api/controllers')
+      const { priceService } = await import('../../api/controllers')
       vi.mocked(priceService.getYieldRates).mockResolvedValue(mockRates)
 
       const allocation = await yieldManagementService.calculateOptimalAllocation(availableBTC)
@@ -403,7 +399,7 @@ describe('Yield Management Service', () => {
         aave: { apy: 7.8, tvl: 2000000, utilizationRate: 0.65 }
       }
 
-      const { priceService } = await import('../api/controllers')
+      const { priceService } = await import('../../api/controllers')
       vi.mocked(priceService.getYieldRates).mockResolvedValue(mockRates)
 
       const allocation = await yieldManagementService.calculateOptimalAllocation(1.0)
@@ -421,7 +417,7 @@ describe('Yield Management Service', () => {
         { id: 2, protocol: 'aave', amount: 0.3, apy: 9.5 }
       ]
 
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue(mockPositions)
 
       const mockCurrentRates = {
@@ -430,7 +426,7 @@ describe('Yield Management Service', () => {
         yearn: { apy: 15.0 }  // New attractive option
       }
 
-      const { priceService } = await import('../api/controllers')
+      const { priceService } = await import('../../api/controllers')
       vi.mocked(priceService.getYieldRates).mockResolvedValue(mockCurrentRates)
 
       const mockContract = {
@@ -452,7 +448,7 @@ describe('Yield Management Service', () => {
         { id: 2, protocol: 'aave', amount: 0.3, apy: 8.2 }
       ]
 
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue(mockPositions)
 
       const mockCurrentRates = {
@@ -460,7 +456,7 @@ describe('Yield Management Service', () => {
         aave: { apy: 8.3 }
       }
 
-      const { priceService } = await import('../api/controllers')
+      const { priceService } = await import('../../api/controllers')
       vi.mocked(priceService.getYieldRates).mockResolvedValue(mockCurrentRates)
 
       const rebalanceResult = await yieldManagementService.rebalancePositions()
@@ -474,7 +470,7 @@ describe('Yield Management Service', () => {
         { id: 1, protocol: 'compound', amount: 0.01, apy: 6.0 } // Small position
       ]
 
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue(mockPositions)
 
       const mockCurrentRates = {
@@ -482,7 +478,7 @@ describe('Yield Management Service', () => {
         yearn: { apy: 15.0 } // Much higher yield
       }
 
-      const { priceService } = await import('../api/controllers')
+      const { priceService } = await import('../../api/controllers')
       vi.mocked(priceService.getYieldRates).mockResolvedValue(mockCurrentRates)
 
       // Mock high gas prices
@@ -506,7 +502,7 @@ describe('Yield Management Service', () => {
         { id: 1, protocol: 'compound', amount: 0.5, apy: 5.0 }
       ]
 
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue(mockPositions)
 
       const mockContract = {
@@ -522,7 +518,7 @@ describe('Yield Management Service', () => {
         { id: 1, protocol: 'compound', amount: 0.05, apy: 6.0 }
       ]
 
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue(mockPositions)
 
       const rebalanceResult = await yieldManagementService.rebalancePositions({
@@ -545,7 +541,7 @@ describe('Yield Management Service', () => {
       }
       vi.mocked(require('ethers').ethers.Contract).mockReturnValue(mockContract)
 
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue([
         { id: 1, protocol, amount: 0.5, status: 'active' }
       ])
@@ -561,7 +557,7 @@ describe('Yield Management Service', () => {
     })
 
     it('should handle withdrawal amount validation', async () => {
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue([
         { id: 1, protocol: 'compound', amount: 0.5 }
       ])
@@ -577,7 +573,7 @@ describe('Yield Management Service', () => {
       }
       vi.mocked(require('ethers').ethers.Contract).mockReturnValue(mockContract)
 
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue([
         { id: 1, protocol: 'compound', amount: 0.5 }
       ])
@@ -608,7 +604,7 @@ describe('Yield Management Service', () => {
     })
 
     it('should calculate withdrawal fees', async () => {
-      const { database } = await import('../utils/database')
+      const { database } = await import('../../utils/database')
       vi.mocked(database.query).mockResolvedValue([
         { 
           id: 1, 
@@ -739,7 +735,7 @@ describe('Yield Management Service', () => {
 
   describe('Integration with External Services', () => {
     it('should integrate with price oracles for accurate valuations', async () => {
-      const { priceService } = await import('../api/controllers')
+      const { priceService } = await import('../../api/controllers')
       vi.mocked(priceService.getBTCPrice).mockResolvedValue(45000)
 
       const portfolioValue = await yieldManagementService.getPortfolioValue()

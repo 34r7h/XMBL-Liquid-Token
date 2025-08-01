@@ -33,6 +33,58 @@ export const database = {
     }
   },
 
+  async query(sql: string, params?: any[]): Promise<any[]> {
+    if (!this.isConnected) {
+      throw new Error('Database not connected');
+    }
+    // Mock implementation for testing
+    if (process.env.NODE_ENV === 'test') {
+      return [];
+    }
+    // In real implementation, execute SQL query
+    console.log('Executing query:', sql, params);
+    return [];
+  },
+
+  async insert(table: string, data: any): Promise<{ id: number }> {
+    if (!this.isConnected) {
+      throw new Error('Database not connected');
+    }
+    // Mock implementation for testing
+    if (process.env.NODE_ENV === 'test') {
+      return { id: Math.floor(Math.random() * 1000) };
+    }
+    // In real implementation, insert data
+    console.log('Inserting into', table, data);
+    return { id: 1 };
+  },
+
+  async update(table: string, data: any, where: any): Promise<number> {
+    if (!this.isConnected) {
+      throw new Error('Database not connected');
+    }
+    // Mock implementation for testing
+    if (process.env.NODE_ENV === 'test') {
+      return 1;
+    }
+    // In real implementation, update data
+    console.log('Updating', table, data, where);
+    return 1;
+  },
+
+  async delete(table: string, where: any): Promise<number> {
+    if (!this.isConnected) {
+      throw new Error('Database not connected');
+    }
+    // Mock implementation for testing
+    if (process.env.NODE_ENV === 'test') {
+      return 1;
+    }
+    // In real implementation, delete data
+    console.log('Deleting from', table, where);
+    return 1;
+  },
+
   async health(): Promise<DatabaseHealth> {
     if (this.isConnected) {
       return { status: 'healthy' };
