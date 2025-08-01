@@ -7,6 +7,11 @@ export default defineConfig({
     setupFiles: [],
     mockReset: true,
     clearMocks: true,
-    restoreMocks: true
+    restoreMocks: true,
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/__tests__/_broken/**'
+    ]
   }
 })

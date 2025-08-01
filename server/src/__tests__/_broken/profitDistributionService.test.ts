@@ -43,7 +43,10 @@ describe('Profit Distribution Service', () => {
         getProtocolFee: vi.fn().mockResolvedValue(mockYieldData.protocolFee),
         getReservePercentage: vi.fn().mockResolvedValue(mockYieldData.reservePercentage)
       }
-      vi.mocked(require('ethers').ethers.Contract).mockReturnValue(mockContract)
+      
+      // Use proper ES module mocking instead of require
+      const { ethers } = await import('ethers')
+      vi.mocked(ethers.Contract).mockImplementation(() => mockContract as any)
 
       const distributableYield = await profitDistributionService.calculateDistributableYield()
 
