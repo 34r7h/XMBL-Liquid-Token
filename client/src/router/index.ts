@@ -47,4 +47,38 @@
  */
 
 import { createRouter, createWebHistory } from 'vue-router'
-// TODO: Import components and wallet connection check
+import Home from '../views/Home.vue'
+import Dashboard from '../views/Dashboard.vue'
+
+const router = createRouter({
+    history: createWebHistory('/'),
+    routes: [
+        {
+            path: '/',
+            name: 'home',
+            component: Home,
+            meta: {
+                title: 'XMBL Protocol - Liquid Yield NFTs',
+                description: 'Deposit tokens and receive XMBL NFTs with built-in yield generation'
+            }
+        },
+        {
+            path: '/dashboard',
+            name: 'dashboard',
+            component: Dashboard,
+            meta: {
+                requiresAuth: true,
+                title: 'Dashboard - XMBL Protocol',
+                description: 'Manage your XMBL NFT portfolio and track yields'
+            }
+        },
+        {
+            path: '/:pathMatch(.*)*',
+            redirect: '/'
+        }
+    ]
+})
+
+// TODO: Add route guards for wallet connection
+
+export default router

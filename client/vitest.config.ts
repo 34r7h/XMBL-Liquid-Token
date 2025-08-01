@@ -1,7 +1,8 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig, mergeConfig } from 'vitest/config'
 import { resolve } from 'path'
+import viteConfig from './vite.config'
 
-export default defineConfig({
+export default mergeConfig(viteConfig, defineConfig({
   esbuild: {
     target: 'esnext'
   },
@@ -53,4 +54,4 @@ export default defineConfig({
     __VUE_OPTIONS_API__: true,
     __VUE_PROD_DEVTOOLS__: false
   }
-})
+}))
