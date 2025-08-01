@@ -84,6 +84,7 @@ describe('TransactionHistory.vue', () => {
       sortOrder: 'desc',
       totalCount: 25,
       fetchTransactions: vi.fn(),
+      fetchTransactionHistory: vi.fn().mockResolvedValue(undefined),
       loadMoreTransactions: vi.fn(),
       filterTransactions: vi.fn(),
       sortTransactions: vi.fn(),
@@ -95,6 +96,7 @@ describe('TransactionHistory.vue', () => {
 
     walletStore = {
       isConnected: true,
+      account: '0x1234567890123456789012345678901234567890',
       address: '0x1234567890123456789012345678901234567890',
       networkId: 1
     }
