@@ -58,3 +58,131 @@
  * - Encoding/decoding failures
  * - Insufficient entropy sources
  */
+
+import { createHash, randomBytes } from 'crypto';
+
+export interface SecretPair {
+  secret: string;
+  hash: string;
+}
+
+export class SecretGenerator {
+  private readonly SECRET_LENGTH = 32; // 32 bytes = 256 bits
+
+  /**
+   * Generate a cryptographically secure random secret
+   */
+  generateSecret(): string {
+    const secret = randomBytes(this.SECRET_LENGTH);
+    return secret.toString('hex');
+  }
+
+  /**
+   * Create SHA256 hash of secret for HTLC
+   */
+  hashSecret(secret: string): string {
+    if (!this.isValidSecret(secret)) {
+      throw new Error('Invalid secret format');
+    }
+    
+    const hash = createHash('sha256');
+    hash.update(Buffer.from(secret, 'hex'));
+    return hash.digest('hex');
+  }
+
+  /**
+   * Verify that a secret matches its hash
+   */
+  verifySecret(secret: string, hash: string): boolean {
+    try {
+      const computedHash = this.hashSecret(secret);
+      return computedHash === hash;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Generate secret and hash pair for HTLC
+   */
+  generateSecretPair(): SecretPair {
+    const secret = this.generateSecret();
+    const hash = this.hashSecret(secret);
+    return { secret, hash };
+  }
+
+  /**
+   * Base64 encode secret for transmission
+   */
+  encodeSecret(secret: string): string {
+    if (!this.isValidSecret(secret)) {
+      throw new Error('Invalid secret format');
+    }
+    
+    const buffer = Buffer.from(secret, 'hex');
+    return buffer.toString('base64');
+  }
+
+  /**
+   * Decode base64 secret
+   */
+  decodeSecret(encodedSecret: string): string {
+    try {
+      const buffer = Buffer.from(encodedSecret, 'base64');
+      const secret = buffer.toString('hex');
+      
+      if (!this.isValidSecret(secret)) {
+        throw new Error('Decoded secret is invalid');
+      }
+      
+      return secret;
+    } catch (error) {
+      throw new Error('Failed to decode secret');
+    }
+  }
+
+  /**
+   * Validate secret format and length
+   */
+  isValidSecret(secret: string): boolean {
+    // Check if it's a valid hex string of correct length
+    const hexPattern = /^[a-fA-F0-9]+$/;
+    return (
+      typeof secret === 'string' &&
+      secret.length === this.SECRET_LENGTH * 2 && // hex string is 2x length
+      hexPattern.test(secret)
+    );
+  }
+
+  /**
+   * Create timelock timestamp (current time + hours)
+   */
+  createTimelock(hours: number): number {
+    if (hours <= 0) {
+      throw new Error('Timelock hours must be positive');
+    }
+    
+    const now = Math.floor(Date.now() / 1000); // Unix timestamp
+    const hoursInSeconds = hours * 60 * 60;
+    return now + hoursInSeconds;
+  }
+
+  /**
+   * Check if timelock has expired
+   */
+  isTimelockExpired(timelock: number): boolean {
+    const now = Math.floor(Date.now() / 1000);
+    return now >= timelock;
+  }
+
+  /**
+   * Get remaining time until timelock expires
+   */
+  getTimelockRemaining(timelock: number): number {
+    const now = Math.floor(Date.now() / 1000);
+    return Math.max(0, timelock - now);
+  }
+}
+
+// Export singleton instance
+export const secretGenerator = new SecretGenerator();

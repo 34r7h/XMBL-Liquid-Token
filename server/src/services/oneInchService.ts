@@ -181,7 +181,7 @@ export class OneInchService {
           authKey: apiKey
         });
       } catch (error) {
-        // If FusionSDK fails, create a simple mock
+        // If FusionSDK fails, create fallback mock implementation
         this.fusionSDK = {
           createOrder: async (order: any) => ({ orderHash: '0xmockorderhash1234567890123456789012345678901234567890123456789012' }),
           getOrderStatus: async (hash: string) => ({ 

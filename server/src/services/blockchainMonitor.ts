@@ -479,7 +479,7 @@ class BlockchainMonitor {
   }
 
   private getContractABI(): any[] {
-    // Simplified ABI for testing
+    // Standard ABI for contract event monitoring
     return [
       'event Deposit(address indexed user, uint256 amount, address token)',
       'event SwapCompleted(address indexed user, address fromToken, address toToken, uint256 fromAmount, uint256 toAmount)',
