@@ -4,12 +4,13 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
  * @title EthereumHTLC
  * @dev Hash Time Locked Contract for atomic swaps between Ethereum and Bitcoin networks
  */
-contract EthereumHTLC is Ownable, ERC165 {
+contract EthereumHTLC is Ownable, ERC165, ReentrancyGuard {
     
     struct SwapDetails {
         address initiator;
@@ -31,6 +32,7 @@ contract EthereumHTLC is Ownable, ERC165 {
     uint256 public completedSwaps;
     uint256 public refundedSwaps;
     bool public contractPaused;
+    uint256 public maxActiveSwapsPerUser = 50; // Prevent griefing
     
     // Events
     event FundsLocked(bytes32 indexed hashlock, address indexed initiator, address indexed recipient, uint256 amount, uint256 timelock);
@@ -39,6 +41,11 @@ contract EthereumHTLC is Ownable, ERC165 {
     event SwapCancelled(bytes32 indexed hashlock, address indexed initiator);
     event TimelockExtended(bytes32 indexed hashlock, uint256 newTimelock);
     event ContractPaused(bool paused);
+    
+    modifier validHashlock(bytes32 hashlock) {
+        require(hashlock != bytes32(0), "Invalid hashlock format");
+        _;
+    }
     
     modifier notPaused() {
         require(!contractPaused, "Contract is paused");
@@ -60,10 +67,12 @@ contract EthereumHTLC is Ownable, ERC165 {
         uint256 timelock,
         address recipient,
         uint256 amount
-    ) external payable notPaused validTimelock(timelock) {
+    ) external payable notPaused validTimelock(timelock) validHashlock(hashlock) {
         require(swaps[hashlock].initiator == address(0), "Hashlock already exists");
-        require(recipient != address(0), "Invalid recipient");
+        require(recipient != address(0), "Invalid recipient address");
         require(amount > 0, "Amount must be greater than zero");
+        require(recipient != address(this), "Cannot send to contract");
+        require(userActiveSwaps[msg.sender] < maxActiveSwapsPerUser, "Too many active swaps");
         
         if (msg.value > 0) {
             require(msg.value == amount, "ETH amount mismatch");
@@ -91,11 +100,13 @@ contract EthereumHTLC is Ownable, ERC165 {
         address recipient,
         uint256 amount,
         address tokenAddress
-    ) external notPaused validTimelock(timelock) {
+    ) external notPaused validTimelock(timelock) validHashlock(hashlock) {
         require(swaps[hashlock].initiator == address(0), "Hashlock already exists");
-        require(recipient != address(0), "Invalid recipient");
+        require(recipient != address(0), "Invalid recipient address");
         require(amount > 0, "Amount must be greater than zero");
         require(tokenAddress != address(0), "Invalid token address");
+        require(recipient != address(this), "Cannot send to contract");
+        require(userActiveSwaps[msg.sender] < maxActiveSwapsPerUser, "Too many active swaps");
         
         IERC20(tokenAddress).transferFrom(msg.sender, address(this), amount);
         
@@ -116,7 +127,7 @@ contract EthereumHTLC is Ownable, ERC165 {
         emit FundsLocked(hashlock, msg.sender, recipient, amount, timelock);
     }
     
-    function claimFunds(bytes32 secret) external {
+    function claimFunds(bytes32 secret) external nonReentrant {
         bytes32 hashlock = keccak256(abi.encodePacked(secret));
         SwapDetails storage swap = swaps[hashlock];
         
@@ -144,12 +155,12 @@ contract EthereumHTLC is Ownable, ERC165 {
         emit FundsClaimed(hashlock, msg.sender, secret);
     }
     
-    function refundFunds(bytes32 hashlock) external {
+    function refundFunds(bytes32 hashlock) external nonReentrant {
         SwapDetails storage swap = swaps[hashlock];
         
         require(swap.initiator != address(0), "Swap does not exist");
-        require(!swap.claimed, "Funds already claimed");
-        require(!swap.refunded, "Funds already refunded");
+        require(!swap.claimed, "Already claimed or refunded");
+        require(!swap.refunded, "Already claimed or refunded");
         require(block.timestamp > swap.timelock, "Timelock not expired");
         require(msg.sender == swap.initiator, "Only initiator can refund");
         
@@ -193,7 +204,7 @@ contract EthereumHTLC is Ownable, ERC165 {
         emit TimelockExtended(hashlock, swap.timelock);
     }
     
-    function cancelSwap(bytes32 hashlock) external {
+    function cancelSwap(bytes32 hashlock) external nonReentrant {
         SwapDetails storage swap = swaps[hashlock];
         
         require(swap.initiator != address(0), "Swap does not exist");
@@ -215,7 +226,12 @@ contract EthereumHTLC is Ownable, ERC165 {
     }
     
     function pauseContract() external onlyOwner {
-        contractPaused = !contractPaused;
+        contractPaused = true;
+        emit ContractPaused(contractPaused);
+    }
+    
+    function unpauseContract() external onlyOwner {
+        contractPaused = false;
         emit ContractPaused(contractPaused);
     }
     
@@ -223,6 +239,11 @@ contract EthereumHTLC is Ownable, ERC165 {
         require(newMin > 0 && newMax > newMin, "Invalid timelock bounds");
         minimumTimelock = newMin;
         maximumTimelock = newMax;
+    }
+    
+    function setMaxActiveSwapsPerUser(uint256 newMax) external onlyOwner {
+        require(newMax > 0, "Invalid max active swaps");
+        maxActiveSwapsPerUser = newMax;
     }
     
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {

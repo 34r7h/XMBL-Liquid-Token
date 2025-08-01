@@ -106,5 +106,137 @@ pragma solidity ^0.8.19;
  * - Variable fees based on target chain
  */
 interface IWormholeBridge {
-    // TODO: Define Wormhole bridge interface
+    
+    // Structs
+    struct TransferDetails {
+        uint8 payloadID;
+        uint256 amount;
+        bytes32 tokenAddress;
+        uint16 tokenChain;
+        bytes32 to;
+        uint16 toChain;
+        uint256 fee;
+    }
+    
+    // Events
+    event LogTokensLocked(
+        address indexed token,
+        address indexed sender,
+        uint256 amount,
+        uint16 recipientChain,
+        bytes32 recipient
+    );
+    
+    event TransferRedeemed(
+        address indexed token,
+        address indexed to,
+        uint256 amount,
+        uint16 fromChain
+    );
+    
+    event TokenAttestation(
+        address indexed token,
+        uint16 chain,
+        bytes32 tokenAddress
+    );
+    
+    event TransferInitiated(
+        bytes32 indexed transferHash,
+        address indexed token,
+        uint256 amount,
+        uint16 recipientChain,
+        bytes32 recipient
+    );
+    
+    /**
+     * @dev Initiates cross-chain token transfer
+     * @param token Token address
+     * @param amount Transfer amount
+     * @param recipientChain Target chain ID
+     * @param recipient Recipient address
+     * @param arbiterFee Arbiter fee
+     * @param nonce Nonce for uniqueness
+     * @return sequence Sequence number for tracking
+     */
+    function transferTokens(
+        address token,
+        uint256 amount,
+        uint16 recipientChain,
+        bytes32 recipient,
+        uint256 arbiterFee,
+        uint32 nonce
+    ) external payable returns (uint64 sequence);
+    
+    /**
+     * @dev Completes incoming transfer with signed VAA
+     * @param encodedVm Encoded Verifiable Action Approval (VAA)
+     */
+    function completeTransfer(bytes memory encodedVm) external;
+    
+    /**
+     * @dev Parses transfer payload data
+     * @param encoded Encoded transfer data
+     * @return details Structured transfer details
+     */
+    function parseTransfer(bytes memory encoded) external pure returns (TransferDetails memory details);
+    
+    /**
+     * @dev Attests token for cross-chain use
+     * @param tokenAddress Token contract address
+     * @param nonce Nonce for uniqueness
+     * @return sequence Sequence number
+     */
+    function attestToken(address tokenAddress, uint32 nonce) external payable returns (uint64 sequence);
+    
+    /**
+     * @dev Creates wrapped token on target chain
+     * @param encodedVm Encoded VAA with token attestation
+     * @return wrappedToken Wrapped token address
+     */
+    function createWrapped(bytes memory encodedVm) external returns (address wrappedToken);
+    
+    /**
+     * @dev Updates wrapped token metadata
+     * @param encodedVm Encoded VAA with updated metadata
+     * @return wrappedToken Wrapped token address
+     */
+    function updateWrapped(bytes memory encodedVm) external returns (address wrappedToken);
+    
+    /**
+     * @dev Gets wrapped token address for native token
+     * @param tokenChain Origin chain ID
+     * @param tokenAddress Native token address
+     * @return wrapper Wrapped token contract address
+     */
+    function wrapperForTokenOnChain(uint16 tokenChain, bytes32 tokenAddress) external view returns (address wrapper);
+    
+    /**
+     * @dev Checks if transfer has been completed
+     * @param hash Transfer hash
+     * @return completed Completion status
+     */
+    function isTransferCompleted(bytes32 hash) external view returns (bool completed);
+    
+    /**
+     * @dev Gets guardian network information
+     * @return guardianCount Number of active guardians
+     * @return quorum Required guardian signatures
+     */
+    function getGuardianInfo() external view returns (uint256 guardianCount, uint256 quorum);
+    
+    /**
+     * @dev Validates VAA signature
+     * @param vaa Encoded VAA
+     * @return isValid True if VAA is valid
+     */
+    function verifyVAA(bytes memory vaa) external view returns (bool isValid);
+    
+    /**
+     * @dev Gets bridge fee for transfer
+     * @param token Token address
+     * @param amount Transfer amount
+     * @param targetChain Target chain ID
+     * @return fee Bridge fee amount
+     */
+    function getBridgeFee(address token, uint256 amount, uint16 targetChain) external view returns (uint256 fee);
 }

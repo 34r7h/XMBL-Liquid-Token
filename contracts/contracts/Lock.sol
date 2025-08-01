@@ -55,5 +55,66 @@ pragma solidity ^0.8.19;
  * - Can be removed or repurposed for protocol-specific time-lock needs
  */
 contract Lock {
-    // TODO: Implement Lock contract logic or remove if not needed
+    uint256 public unlockTime;
+    address payable public owner;
+    bool public withdrawn;
+    
+    event Withdrawal(uint256 amount, uint256 when);
+    event FundsLocked(uint256 amount, uint256 unlockTime, address owner);
+    
+    error UnlockTimeNotReached();
+    error AlreadyWithdrawn();
+    error NotOwner();
+    error InvalidUnlockTime();
+    
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner();
+        _;
+    }
+    
+    modifier onlyAfterUnlock() {
+        if (block.timestamp < unlockTime) revert UnlockTimeNotReached();
+        _;
+    }
+    
+    modifier onlyOnce() {
+        if (withdrawn) revert AlreadyWithdrawn();
+        _;
+    }
+    
+    constructor(uint256 _unlockTime) payable {
+        if (_unlockTime <= block.timestamp) revert InvalidUnlockTime();
+        
+        unlockTime = _unlockTime;
+        owner = payable(msg.sender);
+        withdrawn = false;
+        
+        emit FundsLocked(msg.value, _unlockTime, msg.sender);
+    }
+    
+    function withdraw() external onlyOwner onlyAfterUnlock onlyOnce {
+        uint256 amount = address(this).balance;
+        withdrawn = true;
+        
+        (bool success, ) = owner.call{value: amount}("");
+        require(success, "Transfer failed");
+        
+        emit Withdrawal(amount, block.timestamp);
+    }
+    
+    function getUnlockTime() external view returns (uint256) {
+        return unlockTime;
+    }
+    
+    function getBalance() external view returns (uint256) {
+        return address(this).balance;
+    }
+    
+    function getOwner() external view returns (address) {
+        return owner;
+    }
+    
+    function isUnlocked() external view returns (bool) {
+        return block.timestamp >= unlockTime;
+    }
 }
