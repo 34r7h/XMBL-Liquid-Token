@@ -790,4 +790,172 @@ describe("XMBLVault", function () {
       ).to.be.revertedWith("ERC721: invalid token ID");
     });
   });
+
+  describe("Meta Token Functionality", function () {
+    it("Should allow minting individual tokens from meta-token", async function () {
+      const { vault, xmblToken, user1 } = await loadFixture(deployXMBLVaultFixture);
+      
+      // Deposit enough to create a meta-token
+      const depositAmount = parseEther("2.0");
+      const tx = await vault.connect(user1).deposit(ZeroAddress, 0, { value: depositAmount });
+      
+      // Verify meta-token was created
+      const [isMetaToken, mintableCount, startPosition] = await vault.getMetaTokenInfo(1);
+      expect(isMetaToken).to.be.true;
+      expect(mintableCount).to.be.gt(5); // Should be able to mint multiple tokens
+      
+      // Mint 3 individual tokens from the meta-token
+      const tokensToMint = 3;
+      const mintTx = await vault.connect(user1).mintFromMetaToken(1, tokensToMint);
+      
+      // Should emit TokenMintedFromMeta events
+      await expect(mintTx)
+        .to.emit(vault, "TokenMintedFromMeta")
+        .withArgs(user1.address, 1, anyValue);
+      
+      // Verify individual tokens were minted and user owns them
+      const userNFTs = await vault.getUserNFTs(user1.address);
+      expect(userNFTs.length).to.equal(1 + tokensToMint); // meta-token + 3 individual tokens
+      
+      for (let i = 2; i <= 4; i++) {
+        expect(await xmblToken.ownerOf(i)).to.equal(user1.address);
+      }
+      
+      // Verify meta-token's mintable count was reduced
+      const [stillMetaToken, remainingCount, newStartPosition] = await vault.getMetaTokenInfo(1);
+      expect(stillMetaToken).to.be.true;
+      expect(remainingCount).to.equal(mintableCount - BigInt(tokensToMint));
+      expect(newStartPosition).to.equal(startPosition + BigInt(tokensToMint));
+    });
+
+    it("Should convert meta-token to regular token when fully minted", async function () {
+      const { vault, xmblToken, user1 } = await loadFixture(deployXMBLVaultFixture);
+      
+      // Create small meta-token by calculating exact amount needed for few tokens
+      const token1Price = await vault.calculateXMBLValue(0);
+      const token2Price = await vault.calculateXMBLValue(1);
+      const token3Price = await vault.calculateXMBLValue(2);
+      const totalFor3Tokens = token1Price + token2Price + token3Price;
+      
+      const tx = await vault.connect(user1).deposit(ZeroAddress, 0, { value: totalFor3Tokens });
+      
+      // Verify meta-token was created with exactly 3 mintable tokens
+      const [isMetaToken, mintableCount, startPosition] = await vault.getMetaTokenInfo(1);
+      expect(isMetaToken).to.be.true;
+      expect(mintableCount).to.equal(3);
+      
+      // Mint all remaining tokens from meta-token
+      await vault.connect(user1).mintFromMetaToken(1, mintableCount);
+      
+      // Verify meta-token was converted to regular token
+      const [stillMetaToken, remainingCount, newStartPosition] = await vault.getMetaTokenInfo(1);
+      expect(stillMetaToken).to.be.false;
+      expect(remainingCount).to.equal(0);
+      expect(newStartPosition).to.equal(0);
+    });
+
+    it("Should reject minting from meta-token by non-owner", async function () {
+      const { vault, user1, user2 } = await loadFixture(deployXMBLVaultFixture);
+      
+      // User1 creates meta-token
+      const depositAmount = parseEther("1.0");
+      await vault.connect(user1).deposit(ZeroAddress, 0, { value: depositAmount });
+      
+      // User2 tries to mint from user1's meta-token
+      await expect(
+        vault.connect(user2).mintFromMetaToken(1, 1)
+      ).to.be.revertedWith("Not meta token owner");
+    });
+
+    it("Should reject minting more tokens than available in meta-token", async function () {
+      const { vault, user1 } = await loadFixture(deployXMBLVaultFixture);
+      
+      // Create meta-token
+      const depositAmount = parseEther("1.0");
+      await vault.connect(user1).deposit(ZeroAddress, 0, { value: depositAmount });
+      
+      const [isMetaToken, mintableCount, startPosition] = await vault.getMetaTokenInfo(1);
+      
+      // Try to mint more tokens than available
+      await expect(
+        vault.connect(user1).mintFromMetaToken(1, Number(mintableCount) + 1)
+      ).to.be.revertedWith("Exceeds mintable count");
+    });
+
+    it("Should reject minting from non-meta-token", async function () {
+      const { vault, user1 } = await loadFixture(deployXMBLVaultFixture);
+      
+      // Create a single token (not meta-token) by depositing small amount
+      const singleTokenPrice = await vault.calculateXMBLValue(0);
+      await vault.connect(user1).deposit(ZeroAddress, 0, { value: singleTokenPrice });
+      
+      // Verify it's not a meta-token
+      const [isMetaToken, mintableCount, startPosition] = await vault.getMetaTokenInfo(1);
+      expect(isMetaToken).to.be.false;
+      
+      // Try to mint from it
+      await expect(
+        vault.connect(user1).mintFromMetaToken(1, 1)
+      ).to.be.revertedWith("Not a meta token");
+    });
+
+    it("Should reject minting zero tokens", async function () {
+      const { vault, user1 } = await loadFixture(deployXMBLVaultFixture);
+      
+      // Create meta-token
+      const depositAmount = parseEther("1.0");
+      await vault.connect(user1).deposit(ZeroAddress, 0, { value: depositAmount });
+      
+      // Try to mint zero tokens
+      await expect(
+        vault.connect(user1).mintFromMetaToken(1, 0)
+      ).to.be.revertedWith("Must mint at least one token");
+    });
+
+    it("Should handle meta-token privileges correctly", async function () {
+      const { vault, xmblToken, user1 } = await loadFixture(deployXMBLVaultFixture);
+      
+      // Create meta-token
+      const depositAmount = parseEther("1.0");
+      await vault.connect(user1).deposit(ZeroAddress, 0, { value: depositAmount });
+      
+      // Verify meta-token can participate in TBA operations
+      const metaTokenId = 1;
+      const tbaAddress = await vault.getTokenBoundAccount(metaTokenId);
+      expect(tbaAddress).to.not.equal(ZeroAddress);
+      
+      // Verify meta-token owner can execute TBA transactions
+      const executeData = "0x";
+      await expect(
+        vault.connect(user1).executeTBATransaction(metaTokenId, user1.address, 0, executeData)
+      ).to.not.be.reverted;
+      
+      // Verify meta-token can be withdrawn
+      await expect(
+        vault.connect(user1).withdraw(metaTokenId)
+      ).to.not.be.reverted;
+    });
+
+    it("Should track individual token prices correctly when minted from meta-token", async function () {
+      const { vault, user1 } = await loadFixture(deployXMBLVaultFixture);
+      
+      // Create meta-token
+      const depositAmount = parseEther("1.0");
+      await vault.connect(user1).deposit(ZeroAddress, 0, { value: depositAmount });
+      
+      const [isMetaToken, mintableCount, startPosition] = await vault.getMetaTokenInfo(1);
+      
+      // Mint individual tokens
+      const tokensToMint = 3;
+      await vault.connect(user1).mintFromMetaToken(1, tokensToMint);
+      
+      // Verify each individual token has correct price based on its position in bonding curve
+      for (let i = 0; i < tokensToMint; i++) {
+        const tokenId = 2 + i; // Starting from token ID 2 (after meta-token)
+        const expectedPrice = await vault.calculateXMBLValue(Number(startPosition) + i);
+        const actualDepositValue = await vault.nftDepositValues(tokenId);
+        expect(actualDepositValue).to.equal(expectedPrice);
+      }
+    });
+  });
 });
